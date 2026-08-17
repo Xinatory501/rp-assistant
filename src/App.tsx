@@ -3,13 +3,37 @@ import { useAppStore } from "./store";
 import Welcome from "./pages/Welcome";
 import Main from "./pages/Main";
 import Landing from "./pages/Landing";
+import AdminPanel from "./pages/AdminPanel";
 import FileDropZone from "./components/FileDropZone";
 
 export default function App() {
   const { settings, loadFromStore } = useAppStore();
   const [loaded, setLoaded] = useState(false);
+  const [isAdminRoute, setIsAdminRoute] = useState(() => {
+    return (
+      window.location.hash === '#admin' ||
+      window.location.pathname.includes('/admin') ||
+      window.location.search.includes('admin')
+    );
+  });
 
   const isElectron = Boolean((window as any).electronAPI);
+
+  useEffect(() => {
+    const handleHashChange = () => {
+      setIsAdminRoute(
+        window.location.hash === '#admin' ||
+        window.location.pathname.includes('/admin') ||
+        window.location.search.includes('admin')
+      );
+    };
+    window.addEventListener('hashchange', handleHashChange);
+    window.addEventListener('popstate', handleHashChange);
+    return () => {
+      window.removeEventListener('hashchange', handleHashChange);
+      window.removeEventListener('popstate', handleHashChange);
+    };
+  }, []);
 
   useEffect(() => {
     if (isElectron) {
@@ -45,6 +69,18 @@ export default function App() {
     );
   }
 
+  // Web Admin Panel Route (e.g. amzrp.vercel.app/#admin or amzrp.vercel.app/?admin)
+  if (isAdminRoute) {
+    return (
+      <AdminPanel
+        onBackToSite={() => {
+          window.location.hash = '';
+          setIsAdminRoute(false);
+        }}
+      />
+    );
+  }
+
   // Web Browser Experience -> Clean Landing Page
   return (
     <Landing
@@ -55,3 +91,4 @@ export default function App() {
     />
   );
 }
+
