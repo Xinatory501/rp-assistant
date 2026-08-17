@@ -4,7 +4,6 @@ import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/app_store_provider.dart';
 import '../models/profile.dart';
-import '../models/hint.dart';
 import '../services/game_sender.dart';
 import '../services/ahk_generator.dart';
 import '../widgets/app_theme.dart';

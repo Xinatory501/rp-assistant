@@ -1,7 +1,5 @@
 import 'dart:io';
 import '../models/profile.dart';
-import '../models/bind.dart';
-import '../models/hint.dart';
 
 class AhkGenerator {
   static String generateScript({
@@ -77,8 +75,8 @@ class AhkGenerator {
     sb.writeln('; ────────────────────────────────────────────────────────');
 
     for (final b in binds) {
-      if (!b.active || b.hotkey.isEmpty) continue;
-      final ahkKey = _convertHotkeyToAhk(b.hotkey);
+      if (b.key.isEmpty) continue;
+      final ahkKey = _convertHotkeyToAhk(b.key);
       if (ahkKey.isEmpty) continue;
 
       sb.writeln('; Бинд: ${b.title}');
@@ -97,8 +95,8 @@ class AhkGenerator {
         sb.writeln('SendInput, ${processed.replaceAll('{id}', '%A_Args%')}');
         sb.writeln('Sleep, 40');
         sb.writeln('SendInput, {Enter}');
-        if (line.delayMs > 0) {
-          sb.writeln('Sleep, ${line.delayMs}');
+        if (line.delay > 0) {
+          sb.writeln('Sleep, ${line.delay}');
         }
       }
       sb.writeln('return');
