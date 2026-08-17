@@ -10,6 +10,7 @@ import '../tabs/hints_tab.dart';
 import '../tabs/chat_tab.dart';
 import '../tabs/settings_tab.dart';
 import '../widgets/app_theme.dart';
+import '../services/game_detector.dart';
 import 'welcome_screen.dart';
 import 'auth_screen.dart';
 import 'launcher_screen.dart';
