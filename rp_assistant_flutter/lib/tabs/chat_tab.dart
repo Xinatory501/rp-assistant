@@ -76,6 +76,7 @@ class _ChatTabState extends ConsumerState<ChatTab> {
     final server = profile?.server ?? 'Red';
     final org = profile?.org ?? 'УГИБДД';
     final rank = profile?.rank ?? 'Лейтенант';
+    final apiKey = ref.read(appStoreProvider).settings.deepseekApiKey;
 
     // If API key is not specified, provide smart offline assistance
     if (apiKey.isEmpty) {

@@ -63,6 +63,8 @@ class _InterviewTabState extends ConsumerState<InterviewTab> {
     });
     _scrollToBottom();
 
+    final apiKey = ref.read(appStoreProvider).settings.deepseekApiKey;
+
     // If API key is not specified, provide smart offline assistance
     if (apiKey.isEmpty) {
       await Future.delayed(const Duration(milliseconds: 500));
