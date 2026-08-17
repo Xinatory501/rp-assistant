@@ -15,15 +15,35 @@ interface LandingProps {
   onOpenApp: () => void;
 }
 
-// Payment links placeholder — ready to be replaced with your real checkout links
-export const PAYMENT_LINKS = {
-  day1: '',       // Ссылка на оплату 1 дня (49 ₽)
-  week1: '',      // Ссылка на оплату 1 недели (199 ₽)
-  month1: '',     // Ссылка на оплату 1 месяца (490 ₽)
-  year1: '',      // Ссылка на оплату 1 года (1 490 ₽)
-  lifetime: '',   // Ссылка на оплату Навсегда (1 999 ₽)
-  contact: 'https://t.me/', // Telegram поддержка / продажа
+// Official Payment links (FunPay & Custom Checkout)
+export const DEFAULT_PAYMENT_LINKS = {
+  day1: 'https://funpay.com/lots/offer?id=75279018',       // Ссылка на оплату 1 дня (49 ₽)
+  week1: 'https://funpay.com/lots/offer?id=75279439',      // Ссылка на оплату 1 недели (199 ₽)
+  month1: 'https://funpay.com/lots/offer?id=75279686',     // Ссылка на оплату 1 месяца (490 ₽)
+  year1: 'https://funpay.com/lots/offer?id=75280030',      // Ссылка на оплату 1 года (1 490 ₽)
+  lifetime: 'https://funpay.com/lots/offer?id=75280172',   // Ссылка на оплату Навсегда (1 999 ₽)
+  contact: 'https://funpay.com/lots/offer?id=75280172',
 };
+
+export const getPaymentLinks = () => {
+  try {
+    const raw = localStorage.getItem('amz_pay_links');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      return {
+        day1: parsed.day1 || DEFAULT_PAYMENT_LINKS.day1,
+        week1: parsed.week1 || DEFAULT_PAYMENT_LINKS.week1,
+        month1: parsed.month1 || DEFAULT_PAYMENT_LINKS.month1,
+        year1: parsed.year1 || DEFAULT_PAYMENT_LINKS.year1,
+        lifetime: parsed.lifetime || DEFAULT_PAYMENT_LINKS.lifetime,
+        contact: parsed.tgBot || DEFAULT_PAYMENT_LINKS.contact,
+      };
+    }
+  } catch {}
+  return DEFAULT_PAYMENT_LINKS;
+};
+
+export const PAYMENT_LINKS = DEFAULT_PAYMENT_LINKS;
 
 // Official GitHub Releases Downloads
 export const GITHUB_DOWNLOADS = {
@@ -35,6 +55,7 @@ export const GITHUB_DOWNLOADS = {
 export default function Landing({ onOpenApp }: LandingProps) {
   const [selectedServer, setSelectedServer] = useState('Red');
   const [activeFaq, setActiveFaq] = useState<number | null>(null);
+  const payLinks = getPaymentLinks();
 
   const faqs = [
     {
@@ -640,11 +661,12 @@ export default function Landing({ onOpenApp }: LandingProps) {
             </div>
             
             <a
-              href={PAYMENT_LINKS.day1 || '#pricing'}
-              onClick={e => { if (!PAYMENT_LINKS.day1) { alert("Ссылка на оплату тарифа скоро будет добавлена!"); } }}
-              className="mt-6 w-full py-2.5 rounded-xl text-xs font-medium text-center bg-[#282420] hover:bg-[#d97757] text-[#ede5dc] hover:text-white border border-[#38322c] transition-all"
+              href={payLinks.day1}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-6 w-full py-2.5 rounded-xl text-xs font-medium text-center bg-[#282420] hover:bg-[#d97757] text-[#ede5dc] hover:text-white border border-[#38322c] transition-all flex items-center justify-center gap-1.5"
             >
-              Купить за 49 ₽
+              Купить на FunPay (49 ₽)
             </a>
           </div>
 
@@ -663,11 +685,12 @@ export default function Landing({ onOpenApp }: LandingProps) {
             </div>
             
             <a
-              href={PAYMENT_LINKS.week1 || '#pricing'}
-              onClick={e => { if (!PAYMENT_LINKS.week1) { alert("Ссылка на оплату тарифа скоро будет добавлена!"); } }}
-              className="mt-6 w-full py-2.5 rounded-xl text-xs font-medium text-center bg-[#282420] hover:bg-[#d97757] text-[#ede5dc] hover:text-white border border-[#38322c] transition-all"
+              href={payLinks.week1}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-6 w-full py-2.5 rounded-xl text-xs font-medium text-center bg-[#282420] hover:bg-[#d97757] text-[#ede5dc] hover:text-white border border-[#38322c] transition-all flex items-center justify-center gap-1.5"
             >
-              Купить за 199 ₽
+              Купить на FunPay (199 ₽)
             </a>
           </div>
 
@@ -690,11 +713,12 @@ export default function Landing({ onOpenApp }: LandingProps) {
             </div>
             
             <a
-              href={PAYMENT_LINKS.month1 || '#pricing'}
-              onClick={e => { if (!PAYMENT_LINKS.month1) { alert("Ссылка на оплату тарифа скоро будет добавлена!"); } }}
-              className="mt-6 w-full py-2.5 rounded-xl text-xs font-medium text-center bg-[#d97757] hover:bg-[#c96545] text-white shadow-sm transition-all"
+              href={payLinks.month1}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-6 w-full py-2.5 rounded-xl text-xs font-medium text-center bg-[#d97757] hover:bg-[#c96545] text-white shadow-sm transition-all flex items-center justify-center gap-1.5 font-semibold"
             >
-              Купить за 490 ₽
+              Купить на FunPay (490 ₽)
             </a>
           </div>
 
@@ -713,11 +737,12 @@ export default function Landing({ onOpenApp }: LandingProps) {
             </div>
             
             <a
-              href={PAYMENT_LINKS.year1 || '#pricing'}
-              onClick={e => { if (!PAYMENT_LINKS.year1) { alert("Ссылка на оплату тарифа скоро будет добавлена!"); } }}
-              className="mt-6 w-full py-2.5 rounded-xl text-xs font-medium text-center bg-[#282420] hover:bg-[#d97757] text-[#ede5dc] hover:text-white border border-[#38322c] transition-all"
+              href={payLinks.year1}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-6 w-full py-2.5 rounded-xl text-xs font-medium text-center bg-[#282420] hover:bg-[#d97757] text-[#ede5dc] hover:text-white border border-[#38322c] transition-all flex items-center justify-center gap-1.5"
             >
-              Купить за 1 490 ₽
+              Купить на FunPay (1 490 ₽)
             </a>
           </div>
 
@@ -742,11 +767,12 @@ export default function Landing({ onOpenApp }: LandingProps) {
             </div>
             
             <a
-              href={PAYMENT_LINKS.lifetime || '#pricing'}
-              onClick={e => { if (!PAYMENT_LINKS.lifetime) { alert("Ссылка на оплату тарифа скоро будет добавлена!"); } }}
-              className="mt-6 w-full py-2.5 rounded-xl text-xs font-medium text-center bg-[#d97757] hover:bg-[#c96545] text-white shadow-sm transition-all"
+              href={payLinks.lifetime}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-6 w-full py-2.5 rounded-xl text-xs font-medium text-center bg-[#d97757] hover:bg-[#c96545] text-white shadow-sm transition-all flex items-center justify-center gap-1.5 font-semibold"
             >
-              Купить Навсегда
+              Купить на FunPay (1 999 ₽)
             </a>
           </div>
 

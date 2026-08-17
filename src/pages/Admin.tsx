@@ -95,15 +95,22 @@ export default function AdminPage({ onBack }: { onBack: () => void }) {
     try {
       const raw = localStorage.getItem('amz_pay_links');
       return raw ? JSON.parse(raw) : {
-        day1: '',
-        week1: '',
-        month1: '',
-        year1: '',
-        lifetime: '',
-        tgBot: 'https://t.me/'
+        day1: 'https://funpay.com/lots/offer?id=75279018',
+        week1: 'https://funpay.com/lots/offer?id=75279439',
+        month1: 'https://funpay.com/lots/offer?id=75279686',
+        year1: 'https://funpay.com/lots/offer?id=75280030',
+        lifetime: 'https://funpay.com/lots/offer?id=75280172',
+        tgBot: 'https://funpay.com/lots/offer?id=75280172'
       };
     } catch {
-      return { day1: '', week1: '', month1: '', year1: '', lifetime: '', tgBot: 'https://t.me/' };
+      return {
+        day1: 'https://funpay.com/lots/offer?id=75279018',
+        week1: 'https://funpay.com/lots/offer?id=75279439',
+        month1: 'https://funpay.com/lots/offer?id=75279686',
+        year1: 'https://funpay.com/lots/offer?id=75280030',
+        lifetime: 'https://funpay.com/lots/offer?id=75280172',
+        tgBot: 'https://funpay.com/lots/offer?id=75280172'
+      };
     }
   });
 
