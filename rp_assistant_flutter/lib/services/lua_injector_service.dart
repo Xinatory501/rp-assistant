@@ -79,7 +79,8 @@ class LuaInjectorService {
       'hints': hints.map((h) => {
         'id': h.id,
         'title': h.title,
-        'text': h.text,
+        'content': h.content,
+        'hotkey': h.hotkey,
       }).toList(),
       'updated_at': DateTime.now().toIso8601String(),
     };
@@ -327,7 +328,7 @@ function imgui.OnDrawFrame()
           local htitle = h.title or ""
           if hf == "" or htitle:lower():find(hf, 1, true) then
             imgui.TextColored(imgui.ImVec4(0.3, 0.8, 1, 1), e(htitle))
-            imgui.TextWrapped(e(h.text or ""))
+            imgui.TextWrapped(e(h.content or h.text or ""))
             imgui.Separator()
           end
         end
