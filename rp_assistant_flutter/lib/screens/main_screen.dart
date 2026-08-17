@@ -72,6 +72,37 @@ class _MainScreenState extends ConsumerState<MainScreen> with WindowListener {
     }
   }
 
+  Future<void> _handleLaunchOverlay() async {
+    final state = ref.read(appStoreProvider);
+    final notifier = ref.read(appStoreProvider.notifier);
+
+    if (state.settings.overlayAttachmentMode == 'game_bound') {
+      try {
+        await windowManager.setAlwaysOnTop(true);
+        final bounds = await GameDetector.getGameWindowBounds();
+        if (bounds != null) {
+          final x = bounds['left']! + 40.0;
+          final y = bounds['top']! + 40.0;
+          await windowManager.setPosition(Offset(x, y));
+        }
+      } catch (_) {}
+    } else {
+      try {
+        await windowManager.setAlwaysOnTop(false);
+      } catch (_) {}
+    }
+    notifier.updateSettings(state.settings.copyWith(isOverlayMode: true));
+  }
+
+  Future<void> _handleReturnToLauncher() async {
+    final state = ref.read(appStoreProvider);
+    final notifier = ref.read(appStoreProvider.notifier);
+    try {
+      await windowManager.setAlwaysOnTop(false);
+    } catch (_) {}
+    notifier.updateSettings(state.settings.copyWith(isOverlayMode: false));
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(appStoreProvider);
@@ -99,9 +130,7 @@ class _MainScreenState extends ConsumerState<MainScreen> with WindowListener {
     // 3. Launcher Dashboard: If not in overlay mode, show Launcher Screen
     if (!state.settings.isOverlayMode) {
       return LauncherScreen(
-        onLaunchOverlay: () {
-          notifier.updateSettings(state.settings.copyWith(isOverlayMode: true));
-        },
+        onLaunchOverlay: _handleLaunchOverlay,
       );
     }
 
@@ -253,9 +282,7 @@ class _MainScreenState extends ConsumerState<MainScreen> with WindowListener {
                           // Return to Launcher
                           IconButton(
                             icon: const Icon(Icons.dashboard_outlined, size: 14, color: AppColors.accent),
-                            onPressed: () {
-                              notifier.updateSettings(state.settings.copyWith(isOverlayMode: false));
-                            },
+                            onPressed: _handleReturnToLauncher,
                             padding: EdgeInsets.zero,
                             constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
                             tooltip: 'Вернуться в меню лаунчера',

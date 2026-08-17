@@ -93,21 +93,7 @@ class AppStoreNotifier extends StateNotifier<AppState> {
     final activeProfId = _storage.loadActiveProfileId();
     final activeCfgId = _storage.loadActiveConfigId();
 
-    final initialProfiles = profiles.isNotEmpty
-        ? profiles
-        : [
-            Profile(
-              id: 'default_1',
-              name: 'Ivan_Ivanov',
-              nameRu: 'Иванов',
-              server: 'Red',
-              org: 'УГИБДД',
-              dept: 'ОБ ДПС (Отдельный батальон ДПС)',
-              rank: 'Лейтенант полиции [9]',
-              callsign: 'Сокол-1',
-              post: 'Мост г. Южный',
-            )
-          ];
+    final initialProfiles = profiles;
 
     final initialBinds = binds.isNotEmpty ? binds : kDefaultBinds;
     final initialHints = hints.isNotEmpty ? hints : kDefaultHints;
@@ -117,7 +103,7 @@ class AppStoreNotifier extends StateNotifier<AppState> {
 
     state = AppState(
       profiles: initialProfiles,
-      activeProfileId: activeProfId ?? initialProfiles.first.id,
+      activeProfileId: activeProfId ?? (initialProfiles.isNotEmpty ? initialProfiles.first.id : null),
       binds: initialBinds,
       hints: initialHints,
       reportTemplates: initialTemplates,

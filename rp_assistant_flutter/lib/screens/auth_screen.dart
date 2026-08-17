@@ -6,7 +6,7 @@ import '../services/keyauth_service.dart';
 import '../widgets/app_theme.dart';
 import '../widgets/common.dart';
 
-enum _AuthMode { key, login, register }
+enum _AuthMode { login, register, key }
 
 class AuthScreen extends ConsumerStatefulWidget {
   const AuthScreen({super.key});
@@ -16,7 +16,7 @@ class AuthScreen extends ConsumerStatefulWidget {
 }
 
 class _AuthScreenState extends ConsumerState<AuthScreen> {
-  _AuthMode _mode = _AuthMode.key;
+  _AuthMode _mode = _AuthMode.login;
   final _keyCtrl = TextEditingController();
   final _userCtrl = TextEditingController();
   final _passCtrl = TextEditingController();
@@ -62,6 +62,10 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
           setState(() => _errorMessage = res.message);
         }
       } else if (_mode == _AuthMode.login) {
+        if (_userCtrl.text.trim().isEmpty || _passCtrl.text.trim().isEmpty) {
+          setState(() => _errorMessage = 'Введите логин и пароль для входа');
+          return;
+        }
         final res = await KeyAuthService.loginWithCredentials(
           _userCtrl.text,
           _passCtrl.text,
@@ -76,6 +80,10 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
           setState(() => _errorMessage = res.message);
         }
       } else {
+        if (_userCtrl.text.trim().isEmpty || _passCtrl.text.trim().isEmpty) {
+          setState(() => _errorMessage = 'Заполните обязательные поля: Логин и Пароль');
+          return;
+        }
         final res = await KeyAuthService.registerUser(
           username: _userCtrl.text,
           password: _passCtrl.text,
@@ -84,7 +92,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
         );
         if (res.success) {
           setState(() {
-            _successMessage = res.message;
+            _successMessage = 'Аккаунт успешно зарегистрирован! Выполните вход.';
             _mode = _AuthMode.login;
           });
         } else {
@@ -98,17 +106,6 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     }
   }
 
-  void _skipToFree() {
-    final notifier = ref.read(appStoreProvider.notifier);
-    final state = ref.read(appStoreProvider);
-    notifier.updateSettings(state.settings.copyWith(
-      isLoggedIn: true,
-      isPremium: false,
-      username: 'Бесплатный пользователь',
-      licenseExpiry: 'Free Basic',
-    ));
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -118,15 +115,15 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
           child: Container(
             constraints: const BoxConstraints(maxWidth: 440),
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.all(28),
             decoration: BoxDecoration(
               color: AppColors.bgCard,
               borderRadius: BorderRadius.circular(20),
               border: Border.all(color: AppColors.border),
               boxShadow: const [
                 BoxShadow(
-                  color: Colors.black45,
-                  blurRadius: 30,
+                  color: Colors.black54,
+                  blurRadius: 32,
                   offset: Offset(0, 10),
                 ),
               ],
@@ -140,32 +137,32 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Container(
-                      width: 42,
-                      height: 42,
+                      width: 44,
+                      height: 44,
                       decoration: BoxDecoration(
                         color: const Color(0xFF28231f),
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(color: AppColors.accentBorder),
                       ),
-                      child: const Icon(Icons.auto_awesome, color: AppColors.accent, size: 22),
+                      child: const Icon(Icons.auto_awesome, color: AppColors.accent, size: 24),
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 14),
                     const Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
                           'RP Assistant',
-                          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                          style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
                         ),
                         Text(
-                          'Лаунчер для Amazing Online',
+                          'Лаунчер и оверлей для Amazing Online',
                           style: TextStyle(fontSize: 11, color: AppColors.textMuted),
                         ),
                       ],
                     ),
                   ],
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 24),
 
                 // Tab Switcher
                 Container(
@@ -178,13 +175,13 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                   child: Row(
                     children: [
                       Expanded(
-                        child: _tabButton('Ключ', _AuthMode.key),
-                      ),
-                      Expanded(
-                        child: _tabButton('Логин', _AuthMode.login),
+                        child: _tabButton('Вход', _AuthMode.login),
                       ),
                       Expanded(
                         child: _tabButton('Регистрация', _AuthMode.register),
+                      ),
+                      Expanded(
+                        child: _tabButton('Ключ', _AuthMode.key),
                       ),
                     ],
                   ),
@@ -242,7 +239,45 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                 ],
 
                 // Form Fields
-                if (_mode == _AuthMode.key) ...[
+                if (_mode == _AuthMode.login) ...[
+                  RpTextField(
+                    label: 'Логин / Никнейм',
+                    hint: 'Введите ваш логин',
+                    controller: _userCtrl,
+                  ),
+                  const SizedBox(height: 12),
+                  RpTextField(
+                    label: 'Пароль',
+                    hint: '••••••••',
+                    controller: _passCtrl,
+                    obscureText: true,
+                  ),
+                ] else if (_mode == _AuthMode.register) ...[
+                  RpTextField(
+                    label: 'Желаемый логин',
+                    hint: 'Придумайте логин',
+                    controller: _userCtrl,
+                  ),
+                  const SizedBox(height: 12),
+                  RpTextField(
+                    label: 'Email (для восстановления пароля)',
+                    hint: 'you@mail.ru',
+                    controller: _emailCtrl,
+                  ),
+                  const SizedBox(height: 12),
+                  RpTextField(
+                    label: 'Пароль',
+                    hint: '••••••••',
+                    controller: _passCtrl,
+                    obscureText: true,
+                  ),
+                  const SizedBox(height: 12),
+                  RpTextField(
+                    label: 'Лицензионный ключ (необязательно)',
+                    hint: 'AMAZING-PRO-XXXX...',
+                    controller: _regKeyCtrl,
+                  ),
+                ] else ...[
                   RpTextField(
                     label: 'Лицензионный ключ',
                     hint: 'AMAZING-PRO-XXXX-XXXX-XXXX',
@@ -259,51 +294,13 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                       ),
                     ],
                   ),
-                ] else if (_mode == _AuthMode.login) ...[
-                  RpTextField(
-                    label: 'Логин / Почта',
-                    hint: 'nickname или email@domain.com',
-                    controller: _userCtrl,
-                  ),
-                  const SizedBox(height: 10),
-                  RpTextField(
-                    label: 'Пароль',
-                    hint: '••••••••',
-                    controller: _passCtrl,
-                    obscureText: true,
-                  ),
-                ] else ...[
-                  RpTextField(
-                    label: 'Желаемый логин',
-                    hint: 'Ivan_Ivanov',
-                    controller: _userCtrl,
-                  ),
-                  const SizedBox(height: 10),
-                  RpTextField(
-                    label: 'Email (для восстановления)',
-                    hint: 'you@mail.ru',
-                    controller: _emailCtrl,
-                  ),
-                  const SizedBox(height: 10),
-                  RpTextField(
-                    label: 'Пароль',
-                    hint: '••••••••',
-                    controller: _passCtrl,
-                    obscureText: true,
-                  ),
-                  const SizedBox(height: 10),
-                  RpTextField(
-                    label: 'Ключ активации (необязательно)',
-                    hint: 'AMAZING-PRO-XXXX...',
-                    controller: _regKeyCtrl,
-                  ),
                 ],
 
-                const SizedBox(height: 20),
+                const SizedBox(height: 24),
 
                 // Submit Button
                 SizedBox(
-                  height: 40,
+                  height: 42,
                   child: ElevatedButton(
                     onPressed: _isLoading ? null : _submit,
                     style: ElevatedButton.styleFrom(
@@ -313,24 +310,74 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                     child: _isLoading
                         ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                         : Text(
-                            _mode == _AuthMode.key
-                                ? 'Войти по ключу'
-                                : _mode == _AuthMode.login
-                                    ? 'Войти в аккаунт'
-                                    : 'Зарегистрироваться',
+                            _mode == _AuthMode.login
+                                ? 'Войти в аккаунт'
+                                : _mode == _AuthMode.register
+                                    ? 'Зарегистрировать аккаунт'
+                                    : 'Активировать и войти',
                             style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
                           ),
                   ),
                 ),
 
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
 
-                // Free Mode Skip
-                TextButton(
-                  onPressed: _skipToFree,
-                  style: TextButton.styleFrom(foregroundColor: AppColors.textMuted),
-                  child: const Text('Продолжить в бесплатном режиме →', style: TextStyle(fontSize: 12)),
-                ),
+                // Bottom Mode Switch Links
+                if (_mode == _AuthMode.login) ...[
+                  Center(
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Text('Нет аккаунта? ', style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
+                        GestureDetector(
+                          onTap: () => setState(() {
+                            _mode = _AuthMode.register;
+                            _errorMessage = null;
+                            _successMessage = null;
+                          }),
+                          child: const Text(
+                            'Зарегистрироваться',
+                            style: TextStyle(fontSize: 12, color: AppColors.accent, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ] else if (_mode == _AuthMode.register) ...[
+                  Center(
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Text('Уже есть аккаунт? ', style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
+                        GestureDetector(
+                          onTap: () => setState(() {
+                            _mode = _AuthMode.login;
+                            _errorMessage = null;
+                            _successMessage = null;
+                          }),
+                          child: const Text(
+                            'Войти',
+                            style: TextStyle(fontSize: 12, color: AppColors.accent, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ] else ...[
+                  Center(
+                    child: GestureDetector(
+                      onTap: () => setState(() {
+                        _mode = _AuthMode.login;
+                        _errorMessage = null;
+                        _successMessage = null;
+                      }),
+                      child: const Text(
+                        '← Вернуться к входу по логину',
+                        style: TextStyle(fontSize: 12, color: AppColors.textMuted),
+                      ),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -348,7 +395,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
         _successMessage = null;
       }),
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 6),
+        padding: const EdgeInsets.symmetric(vertical: 7),
         decoration: BoxDecoration(
           color: active ? AppColors.accent : Colors.transparent,
           borderRadius: BorderRadius.circular(8),

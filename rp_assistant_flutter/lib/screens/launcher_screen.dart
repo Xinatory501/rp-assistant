@@ -397,26 +397,42 @@ class _LauncherScreenState extends ConsumerState<LauncherScreen> {
                                       const SizedBox(height: 2),
                                       Text('Позывной: «${profile.callsign}»', style: const TextStyle(fontSize: 11, color: AppColors.textMuted)),
                                     ],
-                                  ],
-                                  const SizedBox(height: 12),
-                                  // Quick Switcher dropdown
-                                  if (state.profiles.length > 1) ...[
-                                    DropdownButtonFormField<String>(
-                                      value: state.activeProfileId,
-                                      isDense: true,
-                                      decoration: const InputDecoration(
-                                        labelText: 'Сменить персонажа',
-                                        contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                                      ),
-                                      items: state.profiles.map((p) {
-                                        return DropdownMenuItem(
-                                          value: p.id,
-                                          child: Text('${p.name} [${p.server}] (${p.org})', style: const TextStyle(fontSize: 11)),
-                                        );
-                                      }).toList(),
-                                      onChanged: (id) {
-                                        if (id != null) notifier.setActiveProfile(id);
-                                      },
+                                    // Quick Switcher dropdown or create new
+                                    Row(
+                                      children: [
+                                        if (state.profiles.length > 1)
+                                          Expanded(
+                                            child: DropdownButtonFormField<String>(
+                                              value: state.activeProfileId,
+                                              isDense: true,
+                                              decoration: const InputDecoration(
+                                                labelText: 'Сменить персонажа',
+                                                contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                              ),
+                                              items: state.profiles.map((p) {
+                                                return DropdownMenuItem(
+                                                  value: p.id,
+                                                  child: Text('${p.name} [${p.server}]', style: const TextStyle(fontSize: 11)),
+                                                );
+                                              }).toList(),
+                                              onChanged: (id) {
+                                                if (id != null) notifier.setActiveProfile(id);
+                                              },
+                                            ),
+                                          ),
+                                        if (state.profiles.length > 1) const SizedBox(width: 8),
+                                        OutlinedButton.icon(
+                                          icon: const Icon(Icons.person_add, size: 12),
+                                          label: const Text('+ Персонаж'),
+                                          style: OutlinedButton.styleFrom(
+                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                                            textStyle: const TextStyle(fontSize: 10.5),
+                                          ),
+                                          onPressed: () {
+                                            notifier.updateSettings(settings.copyWith(firstRun: true));
+                                          },
+                                        ),
+                                      ],
                                     ),
                                   ],
                                 ],
@@ -433,8 +449,58 @@ class _LauncherScreenState extends ConsumerState<LauncherScreen> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  const SectionHeader('Горячие клавиши & Инструменты'),
+                                  const SectionHeader('Режим оверлея & Горячие клавиши'),
                                   const SizedBox(height: 8),
+                                  // Overlay Mode Selector
+                                  Container(
+                                    padding: const EdgeInsets.all(8),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.bgMid,
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(color: AppColors.borderLight),
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                          children: [
+                                            const Text('Режим окна:', style: TextStyle(fontSize: 11, color: AppColors.textMuted)),
+                                            DropdownButton<String>(
+                                              value: settings.overlayAttachmentMode,
+                                              underline: const SizedBox(),
+                                              isDense: true,
+                                              dropdownColor: AppColors.bgCard,
+                                              style: const TextStyle(fontSize: 11, color: AppColors.accent, fontWeight: FontWeight.bold),
+                                              items: const [
+                                                DropdownMenuItem(
+                                                  value: 'game_bound',
+                                                  child: Text('🎮 Привязка к экрану игры'),
+                                                ),
+                                                DropdownMenuItem(
+                                                  value: 'floating',
+                                                  child: Text('🪟 Свободное окно'),
+                                                ),
+                                              ],
+                                              onChanged: (v) {
+                                                if (v != null) {
+                                                  notifier.updateSettings(settings.copyWith(overlayAttachmentMode: v));
+                                                }
+                                              },
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          settings.overlayAttachmentMode == 'game_bound'
+                                              ? 'Оверлей откроется на том же мониторе, где запущена игра Amazing Online, и закрепится поверх.'
+                                              : 'Окно оверлея можно свободно перемещать между экранами.',
+                                          style: const TextStyle(fontSize: 9.5, color: AppColors.textDim, height: 1.2),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(height: 10),
                                   _hotkeyRow('Скрыть / Показать', 'Insert'),
                                   _hotkeyRow('Экстренное скрытие', 'Alt + X'),
                                   _hotkeyRow('Авто-ввод в чат', 'F6 (PowerShell)'),

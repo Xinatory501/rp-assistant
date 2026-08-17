@@ -573,6 +573,55 @@ class _AppearanceSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        const SectionHeader('Режим привязки и отображения окна'),
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: AppColors.bgCard,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: AppColors.borderLight),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('Режим работы:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+                  DropdownButton<String>(
+                    value: settings.overlayAttachmentMode,
+                    underline: const SizedBox(),
+                    dropdownColor: AppColors.bgMid,
+                    style: const TextStyle(fontSize: 11, color: AppColors.accent, fontWeight: FontWeight.bold),
+                    items: const [
+                      DropdownMenuItem(
+                        value: 'game_bound',
+                        child: Text('🎮 Привязка к экрану Amazing Online'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'floating',
+                        child: Text('🪟 Свободное плавающее окно'),
+                      ),
+                    ],
+                    onChanged: (v) {
+                      if (v != null) {
+                        notifier.updateSettings(settings.copyWith(overlayAttachmentMode: v));
+                      }
+                    },
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Text(
+                settings.overlayAttachmentMode == 'game_bound'
+                    ? 'Оверлей автоматически находит монитор с игрой Amazing Online, закрепляется поверх (Always on Top) и скрывается/показывается по кнопке Insert.'
+                    : 'Оверлей открывается как стандартное плавающее окно без жесткого закрепления поверх игры, свободно перемещается между мониторами.',
+                style: const TextStyle(fontSize: 10, color: AppColors.textMuted, height: 1.3),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 14),
         const SectionHeader('Прозрачность оверлея'),
         Row(
           children: [

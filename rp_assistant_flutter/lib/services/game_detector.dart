@@ -110,4 +110,47 @@ class GameDetector {
 
     return false;
   }
+
+  static Future<Map<String, int>?> getGameWindowBounds() async {
+    if (!Platform.isWindows) return null;
+    try {
+      final script = '''
+\$proc = Get-Process | Where-Object { \$_.ProcessName -match 'amazing|gta_sa' } | Select-Object -First 1
+if (\$proc -and \$proc.MainWindowHandle -ne [IntPtr]::Zero) {
+  Add-Type -TypeDefinition @"
+    using System;
+    using System.Runtime.InteropServices;
+    public class WinBounds {
+      [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
+      public struct RECT { public int Left; public int Top; public int Right; public int Bottom; }
+    }
+"@ -ErrorAction SilentlyContinue
+  \$r = New-Object WinBounds+RECT
+  [WinBounds]::GetWindowRect(\$proc.MainWindowHandle, [ref]\$r) | Out-Null
+  Write-Output "\$(\$r.Left),\$(\$r.Top),\$(\$r.Right - \$r.Left),\$(\$r.Bottom - \$r.Top)"
 }
+''';
+      final res = await Process.run('powershell', [
+        '-NoProfile',
+        '-NonInteractive',
+        '-WindowStyle', 'Hidden',
+        '-Command',
+        script,
+      ]);
+      final out = res.stdout.toString().trim();
+      if (out.isNotEmpty && out.contains(',')) {
+        final parts = out.split(',');
+        if (parts.length >= 4) {
+          return {
+            'left': int.tryParse(parts[0]) ?? 0,
+            'top': int.tryParse(parts[1]) ?? 0,
+            'width': int.tryParse(parts[2]) ?? 1920,
+            'height': int.tryParse(parts[3]) ?? 1080,
+          };
+        }
+      }
+    } catch (_) {}
+    return null;
+  }
+}
+

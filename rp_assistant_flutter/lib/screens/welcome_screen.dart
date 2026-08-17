@@ -15,12 +15,15 @@ class WelcomeScreen extends ConsumerStatefulWidget {
 }
 
 class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
-  final _nameController = TextEditingController(text: 'Ivan_Ivanov');
-  final _nameRuController = TextEditingController(text: 'Иванов');
+  final _nameController = TextEditingController(text: '');
+  final _nameRuController = TextEditingController(text: '');
+  final _callsignController = TextEditingController(text: '');
+  final _postController = TextEditingController(text: '');
   String _server = 'Red';
   String _org = 'УГИБДД';
   String _dept = '';
   String _rank = '';
+  String? _error;
 
   @override
   void initState() {
@@ -33,23 +36,29 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
   void dispose() {
     _nameController.dispose();
     _nameRuController.dispose();
+    _callsignController.dispose();
+    _postController.dispose();
     super.dispose();
   }
 
   void _finish() {
     final name = _nameController.text.trim();
-    if (name.isEmpty) return;
+    final nameRu = _nameRuController.text.trim();
+    if (name.isEmpty) {
+      setState(() => _error = 'Введите игровой никнейм персонажа (например: Nick_Name)');
+      return;
+    }
 
     final notifier = ref.read(appStoreProvider.notifier);
     final profile = Profile(
       name: name,
-      nameRu: _nameRuController.text.trim(),
+      nameRu: nameRu.isNotEmpty ? nameRu : name.split('_').last,
       server: _server,
       org: _org,
       dept: _dept,
       rank: _rank,
-      callsign: 'Сокол-1',
-      post: 'Мост г. Южный',
+      callsign: _callsignController.text.trim().isNotEmpty ? _callsignController.text.trim() : 'Позывной',
+      post: _postController.text.trim().isNotEmpty ? _postController.text.trim() : 'Пост №1',
     );
     notifier.addProfile(profile);
     notifier.updateSettings(
@@ -110,13 +119,39 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
                 textAlign: TextAlign.center,
                 style: TextStyle(color: AppColors.textMuted, fontSize: 11),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 14),
+
+              if (_error != null) ...[
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: const Color(0x33EF4444),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0x66EF4444)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.error_outline, size: 14, color: Color(0xFFEF4444)),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          _error!,
+                          style: const TextStyle(fontSize: 11, color: Color(0xFFFCA5A5)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+              ],
+
               // Name Inputs
               Row(
                 children: [
                   Expanded(
                     child: RpTextField(
                       label: 'Никнейм (Ivan_Ivanov)',
+                      hint: 'Nick_Name',
                       controller: _nameController,
                     ),
                   ),

@@ -19,6 +19,7 @@ class AppSettings {
   final String licenseExpiry;
   final bool isOverlayMode;
   final String customGamePath;
+  final String overlayAttachmentMode; // 'game_bound' or 'floating'
 
   const AppSettings({
     this.hotkey = 'Insert',
@@ -41,6 +42,7 @@ class AppSettings {
     this.licenseExpiry = '',
     this.isOverlayMode = false,
     this.customGamePath = '',
+    this.overlayAttachmentMode = 'game_bound',
   });
 
   AppSettings copyWith({
@@ -64,6 +66,7 @@ class AppSettings {
     String? licenseExpiry,
     bool? isOverlayMode,
     String? customGamePath,
+    String? overlayAttachmentMode,
   }) {
     return AppSettings(
       hotkey: hotkey ?? this.hotkey,
@@ -86,6 +89,7 @@ class AppSettings {
       licenseExpiry: licenseExpiry ?? this.licenseExpiry,
       isOverlayMode: isOverlayMode ?? this.isOverlayMode,
       customGamePath: customGamePath ?? this.customGamePath,
+      overlayAttachmentMode: overlayAttachmentMode ?? this.overlayAttachmentMode,
     );
   }
 
@@ -110,6 +114,7 @@ class AppSettings {
     'licenseExpiry': licenseExpiry,
     'isOverlayMode': isOverlayMode,
     'customGamePath': customGamePath,
+    'overlayAttachmentMode': overlayAttachmentMode,
   };
 
   factory AppSettings.fromJson(Map<String, dynamic> json) => AppSettings(
@@ -133,5 +138,7 @@ class AppSettings {
     licenseExpiry: json['licenseExpiry'] as String? ?? '',
     isOverlayMode: json['isOverlayMode'] as bool? ?? false,
     customGamePath: json['customGamePath'] as String? ?? '',
+    overlayAttachmentMode: json['overlayAttachmentMode'] as String? ?? 'game_bound',
   );
 }
+
