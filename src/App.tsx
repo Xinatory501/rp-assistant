@@ -6,47 +6,43 @@ import Landing from "./pages/Landing";
 import AdminPage from "./pages/Admin";
 import FileDropZone from "./components/FileDropZone";
 
+// Non-trivial secret route checker (disguised as telemetry/system status)
+function isSecretRoute(): boolean {
+  const hash = window.location.hash.toLowerCase();
+  const search = window.location.search.toLowerCase();
+  const path = window.location.pathname.toLowerCase();
+
+  return (
+    hash === '#telemetry' ||
+    hash === '#status' ||
+    hash === '#core' ||
+    hash === '#node' ||
+    hash === '#admin' ||
+    path.includes('/telemetry') ||
+    path.includes('/status') ||
+    search.includes('telemetry') ||
+    search.includes('sys=core')
+  );
+}
+
 export default function App() {
   const { settings, loadFromStore } = useAppStore();
   const [loaded, setLoaded] = useState(false);
-  const [isAdminRoute, setIsAdminRoute] = useState(() => {
-    return (
-      window.location.hash === '#admin' ||
-      window.location.pathname === '/admin' ||
-      window.location.pathname.includes('/admin') ||
-      window.location.search.includes('admin')
-    );
-  });
+  const [isSecretView, setIsSecretView] = useState(() => isSecretRoute());
 
   const isElectron = Boolean((window as any).electronAPI);
 
   useEffect(() => {
     const checkRoute = () => {
-      setIsAdminRoute(
-        window.location.hash === '#admin' ||
-        window.location.pathname === '/admin' ||
-        window.location.pathname.includes('/admin') ||
-        window.location.search.includes('admin')
-      );
+      setIsSecretView(isSecretRoute());
     };
 
     window.addEventListener('hashchange', checkRoute);
     window.addEventListener('popstate', checkRoute);
 
-    // Global shortcut Ctrl+Shift+A to open Admin panel
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.ctrlKey && e.shiftKey && (e.key === 'A' || e.key === 'a' || e.key === 'Ф' || e.key === 'ф')) {
-        e.preventDefault();
-        window.location.hash = '#admin';
-        setIsAdminRoute(true);
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-
     return () => {
       window.removeEventListener('hashchange', checkRoute);
       window.removeEventListener('popstate', checkRoute);
-      window.removeEventListener('keydown', handleKeyDown);
     };
   }, []);
 
@@ -75,13 +71,13 @@ export default function App() {
     );
   }
 
-  // Admin Route -> Render Admin Panel (Accessible via #admin, /admin, or Ctrl+Shift+A)
-  if (isAdminRoute) {
+  // Disguised Secret Route (Renders Vercel 404 disguise with triple-click unlock)
+  if (isSecretView) {
     return (
       <AdminPage
         onBack={() => {
           window.location.hash = '';
-          setIsAdminRoute(false);
+          setIsSecretView(false);
         }}
       />
     );

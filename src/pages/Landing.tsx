@@ -844,9 +844,6 @@ export default function Landing({ onOpenApp }: LandingProps) {
           <a href="#orgs" className="hover:text-[#ede5dc] transition-colors">Фракции</a>
           <a href="#pricing" className="hover:text-[#ede5dc] transition-colors">Тарифы</a>
           <a href="#faq" className="hover:text-[#ede5dc] transition-colors">FAQ</a>
-          <a href="#admin" className="text-[#8e8579] hover:text-[#d97757] transition-colors flex items-center gap-1 font-mono text-[11px]">
-            <Lock size={11} /> Вход для админа
-          </a>
         </div>
       </footer>
 

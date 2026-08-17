@@ -1,11 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Key, Shield, Users, Download, Copy, Trash2, CheckCircle2,
   RefreshCw, Lock, Unlock, ExternalLink, ArrowLeft, Sparkles,
   Sliders, Plus, FileText, Check, AlertTriangle, Eye, EyeOff,
-  Server, DollarSign
+  Server, DollarSign, Terminal, LogOut, X
 } from 'lucide-react';
-import { SERVERS } from '../constants';
 
 interface GeneratedKey {
   id: string;
@@ -16,10 +15,25 @@ interface GeneratedKey {
   used?: boolean;
 }
 
+// SHA-256 hash of secret password (zero-knowledge: plain text password is never stored or visible in JS)
+const AUTH_DIGEST = '72444412cac88258a7cda188820f22042f4bb1b5d994197af425982f8d584468';
+
+async function computeSha256(text: string): Promise<string> {
+  const enc = new TextEncoder().encode(text);
+  const buf = await crypto.subtle.digest('SHA-256', enc);
+  return Array.from(new Uint8Array(buf))
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('');
+}
+
 export default function AdminPage({ onBack }: { onBack: () => void }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [pinInput, setPinInput] = useState('');
-  const [pinError, setPinError] = useState(false);
+  const [showPrompt, setShowPrompt] = useState(false);
+  const [inputPass, setInputPass] = useState('');
+  const [authError, setAuthError] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [clickCount, setClickCount] = useState(0);
+  const clickTimeoutRef = useRef<number | null>(null);
 
   // Key Generator State
   const [keys, setKeys] = useState<GeneratedKey[]>(() => {
@@ -60,9 +74,9 @@ export default function AdminPage({ onBack }: { onBack: () => void }) {
     }
   });
 
-  // Check auth session
+  // Check saved session
   useEffect(() => {
-    if (sessionStorage.getItem('amz_admin_auth') === 'true') {
+    if (sessionStorage.getItem('__amz_sys_auth') === AUTH_DIGEST) {
       setIsAuthenticated(true);
     }
   }, []);
@@ -72,16 +86,53 @@ export default function AdminPage({ onBack }: { onBack: () => void }) {
     localStorage.setItem('amz_admin_keys', JSON.stringify(keys));
   }, [keys]);
 
-  const handleLogin = (e: React.FormEvent) => {
+  // Triple Click Handler on Vercel 404 Disguise
+  const handleDisguiseClick = () => {
+    setClickCount(prev => {
+      const next = prev + 1;
+      if (next >= 3) {
+        setShowPrompt(true);
+        return 0;
+      }
+      return next;
+    });
+
+    if (clickTimeoutRef.current) clearTimeout(clickTimeoutRef.current);
+    clickTimeoutRef.current = window.setTimeout(() => {
+      setClickCount(0);
+    }, 2000);
+  };
+
+  // Secure zero-knowledge password verification
+  const handleVerify = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Default PIN: admin2026 or amazing2026
-    if (pinInput.trim() === 'admin2026' || pinInput.trim() === 'amazing2026' || pinInput.trim() === '1234') {
-      setIsAuthenticated(true);
-      sessionStorage.setItem('amz_admin_auth', 'true');
-      setPinError(false);
-    } else {
-      setPinError(true);
+    if (!inputPass) return;
+    setIsVerifying(true);
+    setAuthError(false);
+
+    try {
+      const hash = await computeSha256(inputPass);
+      if (hash === AUTH_DIGEST) {
+        sessionStorage.setItem('__amz_sys_auth', AUTH_DIGEST);
+        setIsAuthenticated(true);
+        setShowPrompt(false);
+        setInputPass('');
+      } else {
+        setAuthError(true);
+        setInputPass('');
+      }
+    } catch {
+      setAuthError(true);
+    } finally {
+      setIsVerifying(false);
     }
+  };
+
+  const handleLogout = () => {
+    sessionStorage.removeItem('__amz_sys_auth');
+    setIsAuthenticated(false);
+    setShowPrompt(false);
+    setInputPass('');
   };
 
   const generateKeys = () => {
@@ -148,7 +199,6 @@ export default function AdminPage({ onBack }: { onBack: () => void }) {
     setValDetails(null);
 
     try {
-      // KeyAuth 1.3 API Check
       const resp = await fetch('https://keyauth.win/api/1.3/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -167,7 +217,6 @@ export default function AdminPage({ onBack }: { onBack: () => void }) {
         setValStatus('valid');
         setValDetails('Ключ активен в KeyAuth! Подписка подтверждена.');
       } else {
-        // Check local keys
         const match = keys.find(k => k.key.toUpperCase() === testKey.trim().toUpperCase());
         if (match) {
           setValStatus('valid');
@@ -195,59 +244,78 @@ export default function AdminPage({ onBack }: { onBack: () => void }) {
     setTimeout(() => setStatusMsg(null), 2500);
   };
 
-  // ─── LOGIN SCREEN ───
+  // ─── 1. DISGUISED AUTHENTIC VERCEL 404 SCREEN ───
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen w-full bg-[#171615] text-[#ede5dc] flex items-center justify-center p-4">
-        <div className="w-full max-w-md bg-[#201d1b] border border-[#332e29] rounded-3xl p-8 shadow-2xl space-y-6">
-          <div className="text-center space-y-2">
-            <div className="w-14 h-14 mx-auto rounded-2xl bg-[#28231f] border border-[#523828] flex items-center justify-center text-[#d97757] shadow-inner">
-              <Lock size={26} />
-            </div>
-            <h1 className="text-xl font-bold text-[#fbf7ee]">RP Assistant • Admin Panel</h1>
-            <p className="text-xs text-[#8e8579]">Вход в панель управления лицензиями и сайтом</p>
-          </div>
-
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div>
-              <label className="block text-xs text-[#8e8579] mb-1.5 font-medium">Пароль / PIN администратора</label>
-              <input
-                type="password"
-                placeholder="••••••••"
-                value={pinInput}
-                onChange={e => { setPinInput(e.target.value); setPinError(false); }}
-                className={`w-full bg-[#171615] border ${pinError ? 'border-red-500/80' : 'border-[#332e29]'} focus:border-[#d97757] rounded-xl px-4 py-3 text-sm text-[#ede5dc] outline-none transition-all`}
-                autoFocus
-              />
-              {pinError && (
-                <p className="text-xs text-red-400 mt-1.5 flex items-center gap-1">
-                  <AlertTriangle size={12} /> Неверный пароль. По умолчанию: admin2026
-                </p>
-              )}
-            </div>
-
-            <button
-              type="submit"
-              className="w-full py-3 rounded-xl bg-[#d97757] hover:bg-[#c45b38] text-white font-semibold text-sm shadow-lg shadow-[#d97757]/20 transition-all flex items-center justify-center gap-2"
-            >
-              <Unlock size={16} /> Войти в панель управления
-            </button>
-          </form>
-
-          <div className="pt-2 text-center">
-            <button
-              onClick={onBack}
-              className="text-xs text-[#8e8579] hover:text-[#ede5dc] transition-colors flex items-center gap-1.5 mx-auto"
-            >
-              <ArrowLeft size={13} /> Вернуться на главную сайта
-            </button>
+      <div
+        onClick={handleDisguiseClick}
+        className="h-screen w-screen bg-[#000000] text-[#ffffff] font-sans flex items-center justify-center cursor-default select-none relative"
+        style={{ fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif' }}
+      >
+        {/* Authentic Vercel 404 Layout */}
+        <div className="flex items-center text-center">
+          <h1 className="text-2xl font-medium border-r border-[#333333] pr-6 mr-6 leading-none">
+            404
+          </h1>
+          <div className="text-sm font-normal text-[#888888] tracking-normal">
+            This page could not be found.
           </div>
         </div>
+
+        {/* Secret Hidden Terminal Modal (Activated strictly after 3 clicks) */}
+        {showPrompt && (
+          <div
+            onClick={e => e.stopPropagation()}
+            className="absolute inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-in fade-in duration-200"
+          >
+            <div className="w-full max-w-sm bg-[#111111] border border-[#262626] rounded-2xl p-6 shadow-2xl space-y-4 text-left font-mono">
+              <div className="flex items-center justify-between border-b border-[#222222] pb-3 text-xs text-[#888888]">
+                <div className="flex items-center gap-2">
+                  <Terminal size={14} className="text-[#a0a0a0]" />
+                  <span>CORE_NODE // AUTH_CHALLENGE</span>
+                </div>
+                <button
+                  onClick={() => { setShowPrompt(false); setAuthError(false); }}
+                  className="hover:text-white transition-colors"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+
+              <form onSubmit={handleVerify} className="space-y-3">
+                <div>
+                  <label className="block text-[11px] text-[#666666] mb-1.5 font-medium">ACCESS_TOKEN_HASH</label>
+                  <input
+                    type="password"
+                    autoFocus
+                    placeholder="••••••••••••"
+                    value={inputPass}
+                    onChange={e => { setInputPass(e.target.value); setAuthError(false); }}
+                    className={`w-full bg-[#080808] border ${authError ? 'border-red-500/80' : 'border-[#333333]'} focus:border-[#666666] rounded-xl px-3.5 py-2.5 text-xs text-[#e0e0e0] font-mono outline-none transition-all`}
+                  />
+                  {authError && (
+                    <p className="text-[10px] text-red-400 mt-1.5">
+                      &gt; ACCESS_DENIED: Invalid security key.
+                    </p>
+                  )}
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={isVerifying}
+                  className="w-full py-2.5 rounded-xl bg-[#222222] hover:bg-[#2c2c2c] border border-[#3d3d3d] text-white text-xs font-semibold font-mono transition-all flex items-center justify-center gap-2"
+                >
+                  {isVerifying ? 'VERIFYING_HASH...' : '[ EXECUTE_AUTHENTICATION ]'}
+                </button>
+              </form>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
 
-  // ─── AUTHENTICATED ADMIN PANEL ───
+  // ─── 2. AUTHENTICATED FULL ADMIN PANEL ───
   return (
     <div className="min-h-screen w-full bg-[#171615] text-[#ede5dc] p-4 sm:p-8 font-sans selection:bg-[#d97757]/30">
       <div className="max-w-6xl mx-auto space-y-6">
@@ -262,7 +330,7 @@ export default function AdminPage({ onBack }: { onBack: () => void }) {
               <div className="flex items-center gap-2">
                 <h1 className="text-lg sm:text-xl font-bold text-[#fbf7ee]">RP Assistant • Панель Управления</h1>
                 <span className="text-[10px] font-mono px-2.5 py-0.5 rounded-full bg-[#d97757]/20 text-[#d97757] border border-[#d97757]/30 font-semibold">
-                  ADMIN PRO
+                  SECURE CORE
                 </span>
               </div>
               <p className="text-xs text-[#8e8579]">Генерация лицензий KeyAuth, аналитика и управление сайтом amzrp.vercel.app</p>
@@ -285,10 +353,10 @@ export default function AdminPage({ onBack }: { onBack: () => void }) {
               <ExternalLink size={14} /> KeyAuth Cloud
             </a>
             <button
-              onClick={() => { sessionStorage.removeItem('amz_admin_auth'); setIsAuthenticated(false); }}
-              className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-red-950/40 hover:bg-red-900/60 text-red-300 border border-red-800/40 transition-all"
+              onClick={handleLogout}
+              className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-red-950/40 hover:bg-red-900/60 text-red-300 border border-red-800/40 transition-all flex items-center gap-1"
             >
-              Выйти
+              <LogOut size={13} /> Заблокировать
             </button>
           </div>
         </div>
