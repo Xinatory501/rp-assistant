@@ -288,7 +288,7 @@ class KeyAuthService {
       );
     }
 
-    final isPrem = key != null && isAdminKey(key);
+    final isPrem = key != null && key.isNotEmpty && _verifyCryptographicSignature(key).valid;
 
     // Save to local database
     final prefs = await SharedPreferences.getInstance();
