@@ -11,6 +11,7 @@ import '../tabs/chat_tab.dart';
 import '../tabs/settings_tab.dart';
 import '../widgets/app_theme.dart';
 import '../services/game_detector.dart';
+import '../services/ahk_generator.dart';
 import 'welcome_screen.dart';
 import 'auth_screen.dart';
 import 'launcher_screen.dart';
@@ -77,6 +78,14 @@ class _MainScreenState extends ConsumerState<MainScreen> with WindowListener {
     final state = ref.read(appStoreProvider);
     final notifier = ref.read(appStoreProvider.notifier);
 
+    // 1. Direct In-Game AHK Hook & Commands Injection
+    AhkGenerator.injectAndRunRuntimeScript(
+      profile: state.activeProfile,
+      binds: state.binds,
+      hints: state.hints,
+    );
+
+    // 2. Direct Window Injection / Attachment
     if (state.settings.overlayAttachmentMode == 'game_bound') {
       try {
         await windowManager.setAlwaysOnTop(true);

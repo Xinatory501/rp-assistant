@@ -14,7 +14,7 @@ class AhkGenerator {
 
     final sb = StringBuffer();
     sb.writeln('; ========================================================');
-    sb.writeln('; RP Assistant — AutoHotkey Helper для Amazing Online');
+    sb.writeln('; RP Assistant — Injected AutoHotkey Hook для Amazing Online');
     sb.writeln('; Персонаж: $charName | $charOrg ($charRank) | Сервер: $charServer');
     sb.writeln('; ========================================================');
     sb.writeln('#NoEnv');
@@ -22,7 +22,24 @@ class AhkGenerator {
     sb.writeln('SendMode Input');
     sb.writeln('SetWorkingDir %A_ScriptDir%');
     sb.writeln('');
+    sb.writeln('; --- ВСПЛЫВАЮЩЕЕ ПРИВЕТСТВИЕ ПРИ ИНДЖЕКТЕ В ИГРУ ---');
+    sb.writeln('ToolTip, 🚀 [RP ASSISTANT INJECTED]`nБот-помощник успешно внедрён в Amazing Online!`n📌 Доступные команды: /helpahk | Шпаргалка: Alt+1..Alt+4 | Меню: Insert, 35, 35');
+    sb.writeln('SetTimer, RemoveToolTip, -8000');
+    sb.writeln('');
     sb.writeln('#IfWinActive AMAZING Online');
+    sb.writeln('');
+    sb.writeln('; ────────────────────────────────────────────────────────');
+    sb.writeln('; 0. СПРАВКА И ПОМОЩЬ ПО КОМАНДАМ В ИГРЕ (/helpahk)');
+    sb.writeln('; ────────────────────────────────────────────────────────');
+    sb.writeln('::/helpahk::');
+    sb.writeln('ToolTip, 🤖 [RP ASSISTANT BOT — ПОМОЩЬ ПО КОМАНДАМ]`n=====================================`n💬 Быстрые команды в чат:`n/uk2.1 - /uk5.1 : Статьи УК РФ`n/koap1.1 - /koap3.1 : Статьи КоАП`n/dm /db /mg /sk /tk /pg /rp : РП-термины`n`n⚡ Горячие клавиши (HUD):`nAlt + 1 : Шпаргалка УК и КоАП`nAlt + 2 : Термины собеседования`nAlt + 3 : Правило Миранды`nAlt + 4 : Порядок допроса`nInsert : Открыть меню биндера, 35, 35');
+    sb.writeln('SetTimer, RemoveToolTip, -12000');
+    sb.writeln('return');
+    sb.writeln('');
+    sb.writeln('::/rphelp::');
+    sb.writeln('ToolTip, 🤖 [RP ASSISTANT BOT — ПОМОЩЬ ПО КОМАНДАМ]`n=====================================`n💬 Быстрые команды в чат:`n/uk2.1 - /uk5.1 : Статьи УК РФ`n/koap1.1 - /koap3.1 : Статьи КоАП`n/dm /db /mg /sk /tk /pg /rp : РП-термины`n`n⚡ Горячие клавиши (HUD):`nAlt + 1 : Шпаргалка УК и КоАП`nAlt + 2 : Термины собеседования`nAlt + 3 : Правило Миранды`nAlt + 4 : Порядок допроса`nInsert : Открыть меню биндера, 35, 35');
+    sb.writeln('SetTimer, RemoveToolTip, -12000');
+    sb.writeln('return');
     sb.writeln('');
     sb.writeln('; ────────────────────────────────────────────────────────');
     sb.writeln('; 1. БЫСТРЫЕ КОМАНДЫ АВТОЗАМЕНЫ В ЧАТЕ (HOTSTRINGS)');
@@ -145,4 +162,42 @@ class AhkGenerator {
     await file.writeAsString(content);
     return file;
   }
+
+  /// Automatically injects and executes runtime in-game hook
+  static Future<bool> injectAndRunRuntimeScript({
+    Profile? profile,
+    List<Bind> binds = const [],
+    List<Hint> hints = const [],
+  }) async {
+    if (!Platform.isWindows) return false;
+    try {
+      final content = generateScript(profile: profile, binds: binds, hints: hints);
+      final tmp = Directory.systemTemp;
+      final file = File('${tmp.path}\\rp_assistant_injected.ahk');
+      await file.writeAsString(content);
+
+      // Check standard AHK executable paths
+      final ahkPaths = [
+        r'C:\Program Files\AutoHotkey\AutoHotkey.exe',
+        r'C:\Program Files\AutoHotkey\AutoHotkeyU64.exe',
+        r'C:\Program Files\AutoHotkey\AutoHotkeyU32.exe',
+        r'C:\Program Files (x86)\AutoHotkey\AutoHotkey.exe',
+        r'C:\Program Files (x86)\AutoHotkey\AutoHotkeyU32.exe',
+      ];
+
+      for (final p in ahkPaths) {
+        if (await File(p).exists()) {
+          await Process.start(p, [file.path], mode: ProcessStartMode.detached);
+          return true;
+        }
+      }
+
+      // Default Windows association
+      await Process.start('cmd', ['/c', 'start', '', file.path], mode: ProcessStartMode.detached);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
 }
+
