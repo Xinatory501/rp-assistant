@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/app_store_provider.dart';
 import '../models/profile.dart';
 import '../constants/servers.dart';
+import '../utils/translit_helper.dart';
 import '../widgets/app_theme.dart';
 import '../widgets/common.dart';
 
@@ -24,16 +25,40 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
   String _dept = '';
   String _rank = '';
   String? _error;
+  bool _userManuallyEditedRu = false;
 
   @override
   void initState() {
     super.initState();
     _dept = getDeptsForOrg(_org).first;
     _rank = getRanksForOrg(_org).first;
+    _nameController.addListener(_onNameChanged);
+    _nameRuController.addListener(_onNameRuChanged);
+  }
+
+  void _onNameChanged() {
+    if (!_userManuallyEditedRu) {
+      final translit = TranslitHelper.transliterateNickname(_nameController.text);
+      if (translit.isNotEmpty) {
+        _nameRuController.value = TextEditingValue(
+          text: translit,
+          selection: TextSelection.collapsed(offset: translit.length),
+        );
+      }
+    }
+  }
+
+  void _onNameRuChanged() {
+    if (_nameRuController.text.isNotEmpty &&
+        _nameRuController.text != TranslitHelper.transliterateNickname(_nameController.text)) {
+      _userManuallyEditedRu = true;
+    }
   }
 
   @override
   void dispose() {
+    _nameController.removeListener(_onNameChanged);
+    _nameRuController.removeListener(_onNameRuChanged);
     _nameController.dispose();
     _nameRuController.dispose();
     _callsignController.dispose();

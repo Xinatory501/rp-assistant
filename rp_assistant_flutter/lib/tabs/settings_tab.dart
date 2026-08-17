@@ -7,6 +7,7 @@ import '../models/profile.dart';
 import '../models/settings.dart';
 import '../services/keyauth_service.dart';
 import '../constants/servers.dart';
+import '../utils/translit_helper.dart';
 import '../widgets/app_theme.dart';
 import '../widgets/common.dart';
 
@@ -57,6 +58,7 @@ class _SettingsTabState extends ConsumerState<SettingsTab> {
                 ('hotkeys', Icons.keyboard, 'Хоткеи'),
                 ('api', Icons.smart_toy, 'DeepSeek ИИ'),
                 ('premium', Icons.star, 'Premium'),
+                ('account', Icons.account_circle, 'Аккаунт'),
               ])
                 _SideNavItem(
                   id: s.$1,
@@ -109,6 +111,7 @@ class _SettingsTabState extends ConsumerState<SettingsTab> {
                     if (mounted) setState(() => _keyStatus = res.success ? 'ok' : 'fail');
                   },
                 ),
+              'account' => _AccountSection(settings: settings, notifier: notifier),
               _ => const SizedBox.shrink(),
             },
           ),
@@ -284,6 +287,7 @@ class _ProfileDialogState extends State<_ProfileDialog> {
   String _org = 'УГИБДД';
   String _dept = '';
   String _rank = '';
+  bool _userManuallyEditedRu = false;
 
   @override
   void initState() {
@@ -297,10 +301,36 @@ class _ProfileDialogState extends State<_ProfileDialog> {
     _org = e?.org ?? 'УГИБДД';
     _dept = e?.dept ?? getDeptsForOrg('УГИБДД').first;
     _rank = e?.rank ?? getRanksForOrg('УГИБДД').first;
+
+    if (e == null) {
+      _name.addListener(_onNameChanged);
+      _nameRu.addListener(_onNameRuChanged);
+    }
+  }
+
+  void _onNameChanged() {
+    if (!_userManuallyEditedRu && widget.editing == null) {
+      final translit = TranslitHelper.transliterateNickname(_name.text);
+      if (translit.isNotEmpty) {
+        _nameRu.value = TextEditingValue(
+          text: translit,
+          selection: TextSelection.collapsed(offset: translit.length),
+        );
+      }
+    }
+  }
+
+  void _onNameRuChanged() {
+    if (_nameRu.text.isNotEmpty &&
+        _nameRu.text != TranslitHelper.transliterateNickname(_name.text)) {
+      _userManuallyEditedRu = true;
+    }
   }
 
   @override
   void dispose() {
+    _name.removeListener(_onNameChanged);
+    _nameRu.removeListener(_onNameRuChanged);
     _name.dispose();
     _nameRu.dispose();
     _callsign.dispose();
@@ -850,3 +880,93 @@ class _PremiumSection extends StatelessWidget {
     );
   }
 }
+
+class _AccountSection extends StatelessWidget {
+  final AppSettings settings;
+  final AppStoreNotifier notifier;
+
+  const _AccountSection({
+    required this.settings,
+    required this.notifier,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SectionHeader('Учетная запись'),
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: AppColors.bgCard,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.border),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 38,
+                    height: 38,
+                    decoration: BoxDecoration(
+                      color: AppColors.accentDark,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: AppColors.accentBorder),
+                    ),
+                    child: const Icon(Icons.person, color: AppColors.accent, size: 20),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          settings.username.isNotEmpty ? settings.username : 'Пользователь RP Assistant',
+                          style: const TextStyle(
+                            color: AppColors.textPrimary,
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Text(
+                          settings.isPremium ? 'Лицензия: PRO (${settings.licenseExpiry.isNotEmpty ? settings.licenseExpiry : "Бессрочно"})' : 'Лицензия: Базовая (Бесплатная)',
+                          style: TextStyle(
+                            color: settings.isPremium ? AppColors.accent : AppColors.textMuted,
+                            fontSize: 11,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              const Divider(color: AppColors.borderLight, height: 1),
+              const SizedBox(height: 14),
+              Row(
+                children: [
+                  RpButton(
+                    label: 'Выйти из аккаунта',
+                    icon: Icons.logout,
+                    onPressed: () {
+                      notifier.updateSettings(settings.copyWith(
+                        isLoggedIn: false,
+                        username: '',
+                        isPremium: false,
+                        premiumKey: '',
+                      ));
+                    },
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
