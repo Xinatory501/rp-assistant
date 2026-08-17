@@ -85,23 +85,43 @@ class _MainScreenState extends ConsumerState<MainScreen> with WindowListener {
       hints: state.hints,
     );
 
-    // 2. Direct Window Injection / Attachment
-    if (state.settings.overlayAttachmentMode == 'game_bound') {
-      try {
-        await windowManager.setAlwaysOnTop(true);
-        final bounds = await GameDetector.getGameWindowBounds();
-        if (bounds != null) {
-          final x = bounds['left']! + 40.0;
-          final y = bounds['top']! + 40.0;
-          await windowManager.setPosition(Offset(x, y));
-        }
-      } catch (_) {}
-    } else {
-      try {
-        await windowManager.setAlwaysOnTop(false);
-      } catch (_) {}
-    }
+    // 2. Always attach overlay to game window (inject mode)
     notifier.updateSettings(state.settings.copyWith(isOverlayMode: true));
+
+    // 3. Try to position overlay over game window immediately
+    await _attachOverlayToGame();
+
+    // 4. If game not running yet — start background watcher
+    _startGameWatcher();
+  }
+
+  Future<void> _attachOverlayToGame() async {
+    try {
+      await windowManager.setAlwaysOnTop(true);
+      await windowManager.setSkipTaskbar(true);
+
+      final bounds = await GameDetector.getGameWindowBounds();
+      if (bounds != null) {
+        // Position our overlay in top-right corner of game window
+        final x = bounds['left']! + (bounds['width']! - 420).toDouble();
+        final y = bounds['top']! + 20.0;
+        await windowManager.setPosition(Offset(x, y));
+        await windowManager.setSize(const Size(410, 680));
+      }
+    } catch (_) {}
+  }
+
+  void _startGameWatcher() {
+    // Poll every 2 seconds until game window found, then attach
+    Future.delayed(const Duration(seconds: 2), () async {
+      if (!mounted) return;
+      final bounds = await GameDetector.getGameWindowBounds();
+      if (bounds != null) {
+        await _attachOverlayToGame();
+      } else {
+        _startGameWatcher(); // keep polling
+      }
+    });
   }
 
   Future<void> _handleReturnToLauncher() async {

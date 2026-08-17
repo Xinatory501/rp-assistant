@@ -26,7 +26,17 @@ class AhkGenerator {
     sb.writeln('ToolTip, 🚀 [RP ASSISTANT INJECTED]`nБот-помощник успешно внедрён в Amazing Online!`n📌 Доступные команды: /helpahk | Шпаргалка: Alt+1..Alt+4 | Меню: Insert, 35, 35');
     sb.writeln('SetTimer, RemoveToolTip, -8000');
     sb.writeln('');
-    sb.writeln('#IfWinActive AMAZING Online');
+    sb.writeln('; --- Регистрируем все возможные окна игры в одну группу ---');
+    sb.writeln('GroupAdd, AmazingGame, AMAZING Online');
+    sb.writeln('GroupAdd, AmazingGame, GTA:CRMP');
+    sb.writeln('GroupAdd, AmazingGame, SA-MP');
+    sb.writeln('GroupAdd, AmazingGame, ahk_exe gta_sa.exe');
+    sb.writeln('GroupAdd, AmazingGame, ahk_exe crmp.exe');
+    sb.writeln('GroupAdd, AmazingGame, ahk_exe samp.exe');
+    sb.writeln('GroupAdd, AmazingGame, ahk_exe amazing.exe');
+    sb.writeln('GroupAdd, AmazingGame, ahk_exe amazing_online.exe');
+    sb.writeln('');
+    sb.writeln('#IfWinActive, ahk_group AmazingGame');
     sb.writeln('');
     sb.writeln('; ────────────────────────────────────────────────────────');
     sb.writeln('; 0. СПРАВКА И ПОМОЩЬ ПО КОМАНДАМ В ИГРЕ (/helpahk)');
