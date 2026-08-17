@@ -310,7 +310,7 @@ class _ProfileDialogState extends State<_ProfileDialog> {
 
   void _onNameChanged() {
     if (!_userManuallyEditedRu && widget.editing == null) {
-      final translit = TranslitHelper.transliterateNickname(_name.text);
+      final translit = TranslitHelper.transliterateSurname(_name.text);
       if (translit.isNotEmpty) {
         _nameRu.value = TextEditingValue(
           text: translit,
@@ -322,7 +322,7 @@ class _ProfileDialogState extends State<_ProfileDialog> {
 
   void _onNameRuChanged() {
     if (_nameRu.text.isNotEmpty &&
-        _nameRu.text != TranslitHelper.transliterateNickname(_name.text)) {
+        _nameRu.text != TranslitHelper.transliterateSurname(_name.text)) {
       _userManuallyEditedRu = true;
     }
   }

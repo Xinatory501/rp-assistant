@@ -1,6 +1,9 @@
-/// Helper for automatic transliteration of CRMP character names (Ivan_Ivanov -> Иван Иванов)
+/// Helper for automatic transliteration of CRMP character names (Ivan_Ivanov -> Иван Иванов, Savely_Gerov -> Геров)
 class TranslitHelper {
   static const Map<String, String> _commonNames = {
+    'savely': 'Савелий',
+    'saveliy': 'Савелий',
+    'savva': 'Савва',
     'ivan': 'Иван',
     'dmitriy': 'Дмитрий',
     'dmitry': 'Дмитрий',
@@ -85,6 +88,29 @@ class TranslitHelper {
     'alexandra': 'Александра',
     'vera': 'Вера',
     'vasilisa': 'Василиса',
+    'gerov': 'Геров',
+    'morozov': 'Морозов',
+    'morozova': 'Морозова',
+    'ivanov': 'Иванов',
+    'ivanova': 'Иванова',
+    'smirnov': 'Смирнов',
+    'smirnova': 'Смирнова',
+    'petrov': 'Петров',
+    'petrova': 'Петрова',
+    'kuznetsov': 'Кузнецов',
+    'kuznetsova': 'Кузнецова',
+    'popov': 'Попов',
+    'popova': 'Попова',
+    'sokolov': 'Соколов',
+    'sokolova': 'Соколова',
+    'lebedev': 'Лебедев',
+    'lebedeva': 'Лебедева',
+    'kozlov': 'Козлов',
+    'kozlova': 'Козлова',
+    'novikov': 'Новиков',
+    'novikova': 'Новикова',
+    'volkov': 'Волков',
+    'volkova': 'Волкова',
   };
 
   /// Transliterates a single English word to Russian using rules
@@ -148,11 +174,22 @@ class TranslitHelper {
     return res[0].toUpperCase() + res.substring(1);
   }
 
+  /// Converts 'Savely_Gerov' -> 'Геров' (only surname!)
+  static String transliterateSurname(String nick) {
+    if (nick.trim().isEmpty) return '';
+    final parts = nick.trim().split(RegExp(r'[_\s]+')).where((p) => p.isNotEmpty).toList();
+    if (parts.isEmpty) return '';
+    // If nickname is Nick_Name, always extract the surname (second / last part)
+    final surnamePart = parts.length > 1 ? parts.last : parts.first;
+    return transliterateWord(surnamePart);
+  }
+
   /// Converts 'Ivan_Ivanov' or 'Ivan Ivanov' to 'Иван Иванов'
   static String transliterateNickname(String nick) {
     if (nick.trim().isEmpty) return '';
-    final parts = nick.trim().split(RegExp(r'[_\s]+'));
+    final parts = nick.trim().split(RegExp(r'[_\s]+')).where((p) => p.isNotEmpty).toList();
     final result = parts.map(transliterateWord).join(' ');
     return result;
   }
 }
+

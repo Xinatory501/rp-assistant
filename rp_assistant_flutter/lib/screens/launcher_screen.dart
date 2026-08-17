@@ -69,19 +69,8 @@ class _LauncherScreenState extends ConsumerState<LauncherScreen> {
   }
 
   void _onPressLaunch() {
-    if (_gameInfo.isRunning) {
-      // Game is running, enter overlay mode directly
-      widget.onLaunchOverlay();
-    } else {
-      // Game not running, display helpful error with options
-      setState(() {
-        _launchError = '⚠️ Процесс Amazing Online не обнаружен среди запущенных программ.\n'
-            '1. Запустите игру через Лаунчер Amazing Online.\n'
-            '2. Зайдите на сервер персонажем.\n'
-            '3. Нажмите «Запустить оверлей» снова.\n\n'
-            'Вы также можете запустить оверлей принудительно в тестовом режиме.';
-      });
-    }
+    setState(() => _launchError = null);
+    widget.onLaunchOverlay();
   }
 
   void _forceLaunchOverlay() {

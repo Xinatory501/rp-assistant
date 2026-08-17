@@ -22,6 +22,11 @@ class GameDetector {
     'amazing games launcher.exe',
     'amazing launcher.exe',
     'gta_sa.exe',
+    'gta_sa_cr.exe',
+    'crmp.exe',
+    'amazing_online.exe',
+    'amazing_mp.exe',
+    'samp.exe',
     'amazing',
   ];
 
@@ -115,7 +120,7 @@ class GameDetector {
     if (!Platform.isWindows) return null;
     try {
       final script = '''
-\$proc = Get-Process | Where-Object { \$_.ProcessName -match 'amazing|gta_sa' } | Select-Object -First 1
+\$proc = Get-Process | Where-Object { \$_.ProcessName -match 'amazing|gta_sa|crmp|samp' } | Select-Object -First 1
 if (\$proc -and \$proc.MainWindowHandle -ne [IntPtr]::Zero) {
   Add-Type -TypeDefinition @"
     using System;

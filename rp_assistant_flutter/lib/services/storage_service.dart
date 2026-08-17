@@ -113,4 +113,13 @@ class StorageService {
 
   String? loadActiveConfigId() => get('activeConfigId') as String?;
   void saveActiveConfigId(String? id) => set('activeConfigId', id);
+
+  Map<String, dynamic> loadAccounts() {
+    final raw = get('accounts');
+    if (raw is Map<String, dynamic>) return raw;
+    return {};
+  }
+
+  void saveAccounts(Map<String, dynamic> accounts) => set('accounts', accounts);
 }
+

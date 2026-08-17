@@ -38,7 +38,7 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
 
   void _onNameChanged() {
     if (!_userManuallyEditedRu) {
-      final translit = TranslitHelper.transliterateNickname(_nameController.text);
+      final translit = TranslitHelper.transliterateSurname(_nameController.text);
       if (translit.isNotEmpty) {
         _nameRuController.value = TextEditingValue(
           text: translit,
@@ -50,7 +50,7 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
 
   void _onNameRuChanged() {
     if (_nameRuController.text.isNotEmpty &&
-        _nameRuController.text != TranslitHelper.transliterateNickname(_nameController.text)) {
+        _nameRuController.text != TranslitHelper.transliterateSurname(_nameController.text)) {
       _userManuallyEditedRu = true;
     }
   }

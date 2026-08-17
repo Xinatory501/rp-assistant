@@ -266,36 +266,44 @@ class KeyAuthService {
     if (cleanUser.isEmpty || cleanPass.isEmpty) {
       return const AuthResult(
         success: false,
-        message: 'Заполните логин и пароль',
+        message: 'Пожалуйста, заполните поля логина и пароля',
       );
     }
 
-    // Check local accounts first
-    final prefs = await SharedPreferences.getInstance();
-    final localAccountsJson = prefs.getString('rp_saved_accounts') ?? '{}';
-    Map<String, dynamic> localAccounts = {};
-    try {
-      localAccounts = json.decode(localAccountsJson) as Map<String, dynamic>;
-    } catch (_) {}
+    // Step 1: Check Local Storage & SharedPreferences accounts database
+    final storage = StorageService.instance;
+    Map<String, dynamic> localAccounts = storage.loadAccounts();
 
-    if (localAccounts.containsKey(cleanUser.toLowerCase())) {
-      final acc = localAccounts[cleanUser.toLowerCase()] as Map<String, dynamic>;
+    if (localAccounts.isEmpty) {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final raw = prefs.getString('rp_saved_accounts');
+        if (raw != null) {
+          localAccounts = json.decode(raw) as Map<String, dynamic>;
+        }
+      } catch (_) {}
+    }
+
+    final lowerKey = cleanUser.toLowerCase();
+    if (localAccounts.containsKey(lowerKey)) {
+      final acc = localAccounts[lowerKey] as Map<String, dynamic>;
       if (acc['password'] == cleanPass) {
         return AuthResult(
           success: true,
-          message: 'Успешный вход!',
+          message: 'Успешный вход в аккаунт!',
           username: acc['username'] as String? ?? cleanUser,
           isPremium: acc['isPremium'] as bool? ?? false,
+          subscription: acc['isPremium'] == true ? 'PRO' : 'Бесплатная',
         );
       } else {
         return const AuthResult(
           success: false,
-          message: 'Неверный пароль',
+          message: 'Введён неверный пароль. Пожалуйста, проверьте введённые данные.',
         );
       }
     }
 
-    // Try KeyAuth Cloud API
+    // Step 2: Try KeyAuth Cloud API
     try {
       final session = await _initSession();
       if (session != null) {
@@ -309,14 +317,22 @@ class KeyAuthService {
             'name': _appName,
             'ownerid': _ownerId,
           },
-        ).timeout(const Duration(seconds: 8));
+        ).timeout(const Duration(seconds: 6));
 
         final data = json.decode(resp.body) as Map<String, dynamic>;
         if (data['success'] == true) {
           final info = data['info'] as Map<String, dynamic>?;
+          // Save cloud account locally
+          localAccounts[lowerKey] = {
+            'username': cleanUser,
+            'password': cleanPass,
+            'isPremium': true,
+            'createdAt': DateTime.now().toIso8601String(),
+          };
+          storage.saveAccounts(localAccounts);
           return AuthResult(
             success: true,
-            message: 'Успешный вход!',
+            message: 'Успешный вход через KeyAuth Cloud!',
             username: cleanUser,
             subscription: info?['subscriptions']?[0]?['subscription'] as String? ?? 'PRO',
             isPremium: true,
@@ -325,16 +341,14 @@ class KeyAuthService {
       }
     } catch (_) {}
 
-    // Allow user login and remember account
+    // Account not found
     return AuthResult(
-      success: true,
-      message: 'Успешный вход!',
-      username: cleanUser,
-      isPremium: false,
+      success: false,
+      message: 'Пользователь «$cleanUser» не найден. Пожалуйста, сначала зарегистрируйте аккаунт.',
     );
   }
 
-  // 3. Register Account (No Key required!)
+  // 3. Register Account (Strict validation!)
   static Future<AuthResult> registerUser({
     required String username,
     required String password,
@@ -346,28 +360,52 @@ class KeyAuthService {
     if (cleanUser.isEmpty || cleanPass.isEmpty) {
       return const AuthResult(
         success: false,
-        message: 'Логин и пароль обязательны',
+        message: 'Логин и пароль обязательны для заполнения',
+      );
+    }
+
+    if (cleanUser.length < 3) {
+      return const AuthResult(
+        success: false,
+        message: 'Логин должен содержать минимум 3 символа',
+      );
+    }
+
+    if (cleanPass.length < 4) {
+      return const AuthResult(
+        success: false,
+        message: 'Пароль должен содержать минимум 4 символа',
+      );
+    }
+
+    final storage = StorageService.instance;
+    final localAccounts = storage.loadAccounts();
+    final lowerKey = cleanUser.toLowerCase();
+
+    // Check if user already exists
+    if (localAccounts.containsKey(lowerKey)) {
+      return AuthResult(
+        success: false,
+        message: 'Пользователь с логином «$cleanUser» уже зарегистрирован. Пожалуйста, выполните вход.',
       );
     }
 
     final isPrem = key != null && key.isNotEmpty && _verifyCryptographicSignature(key).valid;
 
-    // Save to local database
-    final prefs = await SharedPreferences.getInstance();
-    final localAccountsJson = prefs.getString('rp_saved_accounts') ?? '{}';
-    Map<String, dynamic> localAccounts = {};
-    try {
-      localAccounts = json.decode(localAccountsJson) as Map<String, dynamic>;
-    } catch (_) {}
-
-    localAccounts[cleanUser.toLowerCase()] = {
+    // Save to dual databases (StorageService config.json + SharedPreferences)
+    localAccounts[lowerKey] = {
       'username': cleanUser,
       'password': cleanPass,
       'email': email.trim(),
       'isPremium': isPrem,
       'createdAt': DateTime.now().toIso8601String(),
     };
-    await prefs.setString('rp_saved_accounts', json.encode(localAccounts));
+    storage.saveAccounts(localAccounts);
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('rp_saved_accounts', json.encode(localAccounts));
+    } catch (_) {}
 
     // Also attempt registering in KeyAuth Cloud if key is provided
     if (key != null && key.trim().isNotEmpty) {
@@ -386,17 +424,18 @@ class KeyAuthService {
               'name': _appName,
               'ownerid': _ownerId,
             },
-          ).timeout(const Duration(seconds: 8));
+          ).timeout(const Duration(seconds: 6));
         }
       } catch (_) {}
     }
 
     return AuthResult(
       success: true,
-      message: 'Учетная запись успешно создана!',
+      message: 'Аккаунт «$cleanUser» успешно создан! Теперь введите пароль для входа.',
       username: cleanUser,
       isPremium: isPrem,
     );
   }
 }
+
 
