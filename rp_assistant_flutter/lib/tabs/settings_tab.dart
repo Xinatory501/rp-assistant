@@ -1,4 +1,6 @@
 import 'dart:convert';
+import 'dart:io';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -6,6 +8,7 @@ import '../providers/app_store_provider.dart';
 import '../models/profile.dart';
 import '../models/settings.dart';
 import '../services/keyauth_service.dart';
+import '../services/lua_injector_service.dart';
 import '../constants/servers.dart';
 import '../utils/translit_helper.dart';
 import '../widgets/app_theme.dart';
@@ -53,6 +56,7 @@ class _SettingsTabState extends ConsumerState<SettingsTab> {
             children: [
               for (final s in const [
                 ('profiles', Icons.person, 'Персонажи'),
+                ('game', Icons.sports_esports, 'Игра & Lua'),
                 ('configs', Icons.folder_zip, 'Конфиги'),
                 ('appearance', Icons.palette, 'Вид & CMS'),
                 ('hotkeys', Icons.keyboard, 'Хоткеи'),
@@ -76,6 +80,7 @@ class _SettingsTabState extends ConsumerState<SettingsTab> {
             padding: const EdgeInsets.all(12),
             child: switch (_section) {
               'profiles' => _ProfilesSection(state: state, notifier: notifier),
+              'game' => _GameSection(state: state, notifier: notifier, settings: settings),
               'configs' => _ConfigsSection(
                   state: state,
                   notifier: notifier,
@@ -962,6 +967,236 @@ class _AccountSection extends StatelessWidget {
                   ),
                 ],
               ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _GameSection extends StatefulWidget {
+  final AppState state;
+  final AppStoreNotifier notifier;
+  final AppSettings settings;
+
+  const _GameSection({
+    required this.state,
+    required this.notifier,
+    required this.settings,
+  });
+
+  @override
+  State<_GameSection> createState() => _GameSectionState();
+}
+
+class _GameSectionState extends State<_GameSection> {
+  late TextEditingController _pathCtrl;
+  bool _isInjecting = false;
+  String? _injectMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    final p = widget.settings.gamePath.isNotEmpty
+        ? widget.settings.gamePath
+        : widget.settings.customGamePath;
+    _pathCtrl = TextEditingController(text: p);
+  }
+
+  @override
+  void didUpdateWidget(covariant _GameSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final p = widget.settings.gamePath.isNotEmpty
+        ? widget.settings.gamePath
+        : widget.settings.customGamePath;
+    if (_pathCtrl.text != p) {
+      _pathCtrl.text = p;
+    }
+  }
+
+  @override
+  void dispose() {
+    _pathCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _browseFolder() async {
+    final res = await FilePicker.platform.getDirectoryPath(
+      dialogTitle: 'Выберите папку с Amazing Online',
+    );
+    if (res != null) {
+      _pathCtrl.text = res;
+      widget.notifier.updateSettings(widget.settings.copyWith(
+        gamePath: res,
+        customGamePath: res,
+        gamePathConfigured: true,
+      ));
+    }
+  }
+
+  Future<void> _autoDetect() async {
+    final found = await LuaInjectorService.findGtaRoot();
+    if (found != null) {
+      _pathCtrl.text = found;
+      widget.notifier.updateSettings(widget.settings.copyWith(
+        gamePath: found,
+        customGamePath: found,
+        gamePathConfigured: true,
+      ));
+      setState(() => _injectMessage = 'Найдена папка: $found');
+    } else {
+      setState(() => _injectMessage = 'Игра не найдена по стандартным путям. Выберите вручную.');
+    }
+  }
+
+  Future<void> _injectNow() async {
+    final profile = widget.state.activeProfile;
+    if (profile == null) {
+      setState(() => _injectMessage = 'Сначала создайте персонажа');
+      return;
+    }
+
+    setState(() {
+      _isInjecting = true;
+      _injectMessage = null;
+    });
+
+    final targetPath = _pathCtrl.text.trim();
+    if (targetPath.isNotEmpty) {
+      widget.notifier.updateSettings(widget.settings.copyWith(
+        gamePath: targetPath,
+        customGamePath: targetPath,
+        gamePathConfigured: true,
+      ));
+    }
+
+    final res = await LuaInjectorService.inject(
+      profile: profile,
+      binds: widget.state.binds,
+      hints: widget.state.hints,
+      moonloaderDir: targetPath.isNotEmpty ? '$targetPath\\moonloader' : null,
+    );
+
+    if (mounted) {
+      setState(() {
+        _isInjecting = false;
+        _injectMessage = res.message;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SectionHeader('Путь к Amazing Online & MoonLoader'),
+        const SizedBox(height: 4),
+        const Text(
+          'Укажите корневую папку с установленной игрой для авто-инъекции Lua-скрипта.',
+          style: TextStyle(color: AppColors.textMuted, fontSize: 11),
+        ),
+        const SizedBox(height: 12),
+
+        // Path field + Browse button
+        Row(
+          children: [
+            Expanded(
+              child: SizedBox(
+                height: 36,
+                child: TextField(
+                  controller: _pathCtrl,
+                  style: const TextStyle(color: AppColors.textPrimary, fontSize: 11, fontFamily: 'monospace'),
+                  decoration: const InputDecoration(
+                    hintText: r'C:\Games\Amazing Games',
+                    contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  ),
+                  onChanged: (val) {
+                    widget.notifier.updateSettings(widget.settings.copyWith(
+                      gamePath: val.trim(),
+                      customGamePath: val.trim(),
+                      gamePathConfigured: true,
+                    ));
+                  },
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            RpButton(
+              label: 'Обзор',
+              icon: Icons.folder_open,
+              small: true,
+              outlined: true,
+              onPressed: _browseFolder,
+            ),
+            const SizedBox(width: 6),
+            RpButton(
+              label: 'Автопоиск',
+              icon: Icons.search,
+              small: true,
+              onPressed: _autoDetect,
+            ),
+          ],
+        ),
+
+        const SizedBox(height: 18),
+        const SectionHeader('Внутриигровой Lua-скрипт (MoonLoader)'),
+        const SizedBox(height: 6),
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: const Color(0x159B59B6),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: const Color(0x449B59B6)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Row(
+                children: [
+                  Icon(Icons.sports_esports, size: 16, color: Color(0xFFBB8FFF)),
+                  SizedBox(width: 8),
+                  Text(
+                    'rp_assistant.lua (ImGui Native Menu)',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFFBB8FFF)),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              const Text(
+                '• Меню открывается клавишей INSERT прямо в игре\n'
+                '• Доступны вкладки: Биндер, УК/КоАП, Термины, Шпаргалки, Миранда\n'
+                '• Конфиг автоматически обновляется из профилей и биндов приложения',
+                style: TextStyle(fontSize: 10.5, color: AppColors.textMuted, height: 1.4),
+              ),
+              const SizedBox(height: 10),
+              SizedBox(
+                height: 34,
+                child: ElevatedButton.icon(
+                  icon: _isInjecting
+                      ? const SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      : const Icon(Icons.system_update_alt, size: 14),
+                  label: Text(_isInjecting ? 'Установка...' : 'Установить / Обновить .lua сейчас'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF7D3C98),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 0),
+                    textStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                  ),
+                  onPressed: _isInjecting ? null : _injectNow,
+                ),
+              ),
+              if (_injectMessage != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  _injectMessage!,
+                  style: TextStyle(
+                    fontSize: 10.5,
+                    color: _injectMessage!.contains('✅') ? const Color(0xFF86EFAC) : const Color(0xFFFECDD3),
+                  ),
+                ),
+              ],
             ],
           ),
         ),
