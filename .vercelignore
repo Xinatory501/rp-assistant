@@ -1,0 +1,9 @@
+release
+release/**
+electron
+scripts
+node_modules
+*.exe
+*.zip
+*.blockmap
+*.yml

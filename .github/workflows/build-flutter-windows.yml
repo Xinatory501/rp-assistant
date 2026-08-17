@@ -1,0 +1,83 @@
+name: Build & Release Flutter Windows
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+
+      - name: Enable Windows Desktop
+        run: flutter config --enable-windows-desktop
+
+      - name: Install Inno Setup
+        run: choco install innosetup --no-progress
+
+      - name: Get Dependencies
+        working-directory: ./rp_assistant_flutter
+        run: flutter pub get
+
+      - name: Build Windows Release
+        working-directory: ./rp_assistant_flutter
+        run: flutter build windows --release
+
+      - name: Bundle VC++ Runtime DLLs
+        run: |
+          $redistDirs = Get-ChildItem -Path "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Redist\MSVC" -Recurse -Directory -Filter "Microsoft.VC143.CRT" -ErrorAction SilentlyContinue
+          $dest = "./rp_assistant_flutter/build/windows/x64/runner/Release/"
+          if ($redistDirs -and $redistDirs.Count -gt 0) {
+            $src = $redistDirs[0].FullName
+            Write-Host "Found VC++ CRT directory: $src"
+            Copy-Item -Path "$src\*.dll" -Destination $dest -Force
+          } else {
+            Write-Host "Searching for redist DLLs in System32..."
+            Copy-Item -Path "C:\Windows\System32\msvcp140*.dll" -Destination $dest -Force -ErrorAction SilentlyContinue
+            Copy-Item -Path "C:\Windows\System32\vcruntime140*.dll" -Destination $dest -Force -ErrorAction SilentlyContinue
+          }
+          Get-ChildItem -Path $dest | Select-Object Name, Length
+
+      - name: Create Portable Zip
+        run: |
+          Compress-Archive -Path ./rp_assistant_flutter/build/windows/x64/runner/Release/* -DestinationPath ./RP-Assistant-Flutter-Portable.zip -Force
+
+      - name: Compile Inno Setup Installer
+        run: |
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" ./rp_assistant_flutter/windows/installer.iss
+
+      - name: Upload Release to GitHub
+        uses: softprops/action-gh-release@v2
+        with:
+          repository: Xinatory501/rp-assistant-releases
+          token: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
+          tag_name: v1.1.0-flutter
+          name: "RP Assistant v1.1.0 (Flutter Edition)"
+          body: |
+            ## 🚀 RP Assistant v1.1.0 — Flutter Edition
+
+            Официальная сборка RP Assistant на Flutter Windows Desktop.
+
+            ### Что нового:
+            - **Встроенные библиотеки VC++ Runtime** (запуск на любой Windows без установки дополнительных пакетов)
+            - **Новое меню Лаунчера:** авторизация / регистрация / ввод ключа KeyAuth
+            - **Детектор игры Amazing Online:** мониторинг процессов и запуск оверлея
+            - **Максимальная плавность (60+ FPS)** и размер установщика всего 10.5 MB
+            - **Глобальные хоткеи:** `Insert` и `Alt+X`
+
+            ### Файлы для загрузки:
+            - **[RP-Assistant-Flutter-Setup.exe](https://github.com/Xinatory501/rp-assistant-releases/releases/download/v1.1.0-flutter/RP-Assistant-Flutter-Setup.exe)** — Инсталлятор
+            - **[RP-Assistant-Flutter-Portable.zip](https://github.com/Xinatory501/rp-assistant-releases/releases/download/v1.1.0-flutter/RP-Assistant-Flutter-Portable.zip)** — Портативная версия (распаковать и запустить)
+          files: |
+            RP-Assistant-Flutter-Portable.zip
+            RP-Assistant-Flutter-Setup.exe
+          draft: false
+          prerelease: false
