@@ -11,10 +11,11 @@ import '../tabs/chat_tab.dart';
 import '../tabs/settings_tab.dart';
 import '../widgets/app_theme.dart';
 import '../services/game_detector.dart';
-import '../services/ahk_generator.dart';
+import '../services/lua_injector_service.dart';
 import 'welcome_screen.dart';
 import 'auth_screen.dart';
 import 'launcher_screen.dart';
+import 'game_path_wizard.dart';
 
 enum _Tab { binder, reports, interview, hints, chat, settings }
 
@@ -78,20 +79,21 @@ class _MainScreenState extends ConsumerState<MainScreen> with WindowListener {
     final state = ref.read(appStoreProvider);
     final notifier = ref.read(appStoreProvider.notifier);
 
-    // 1. Direct In-Game AHK Hook & Commands Injection
-    AhkGenerator.injectAndRunRuntimeScript(
-      profile: state.activeProfile,
-      binds: state.binds,
-      hints: state.hints,
-    );
+    // 1. Inject Lua script into game (ONLY injection method)
+    if (state.activeProfile != null) {
+      await LuaInjectorService.inject(
+        profile: state.activeProfile!,
+        binds: state.binds,
+        hints: state.hints,
+        moonloaderDir: state.settings.gamePath.isNotEmpty
+            ? '${state.settings.gamePath}\\moonloader'
+            : null,
+      );
+    }
 
-    // 2. Always attach overlay to game window (inject mode)
+    // 2. Attach overlay window above game
     notifier.updateSettings(state.settings.copyWith(isOverlayMode: true));
-
-    // 3. Try to position overlay over game window immediately
     await _attachOverlayToGame();
-
-    // 4. If game not running yet — start background watcher
     _startGameWatcher();
   }
 
@@ -152,12 +154,17 @@ class _MainScreenState extends ConsumerState<MainScreen> with WindowListener {
       return const AuthScreen();
     }
 
-    // 2. Character Setup: If no profiles created yet, show Welcome onboarding
+    // 2. Game Path Wizard: Ask once where Amazing Online is installed
+    if (!state.settings.gamePathConfigured) {
+      return GamePathWizard(onDone: () => setState(() {}));
+    }
+
+    // 3. Character Setup: If no profiles created yet, show Welcome onboarding
     if (state.profiles.isEmpty) {
       return WelcomeScreen(onCompleted: () => setState(() {}));
     }
 
-    // 3. Launcher Dashboard: If not in overlay mode, show Launcher Screen
+    // 4. Launcher Dashboard: If not in overlay mode, show Launcher Screen
     if (!state.settings.isOverlayMode) {
       return LauncherScreen(
         onLaunchOverlay: _handleLaunchOverlay,

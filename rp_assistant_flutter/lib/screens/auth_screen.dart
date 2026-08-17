@@ -19,6 +19,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
   final _userCtrl = TextEditingController();
   final _passCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
+  final _licenseCtrl = TextEditingController(); // optional license key at registration
 
   bool _isLoading = false;
   String? _errorMessage;
@@ -29,6 +30,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     _userCtrl.dispose();
     _passCtrl.dispose();
     _emailCtrl.dispose();
+    _licenseCtrl.dispose();
     super.dispose();
   }
 
@@ -70,11 +72,22 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
           username: _userCtrl.text,
           password: _passCtrl.text,
           email: _emailCtrl.text,
+          key: _licenseCtrl.text.trim().isEmpty ? null : _licenseCtrl.text.trim(),
         );
         if (res.success) {
+          // If license key was valid — auto-activate premium
+          if (_licenseCtrl.text.trim().isNotEmpty && res.isPremium) {
+            final notifier = ref.read(appStoreProvider.notifier);
+            final settings = ref.read(appStoreProvider).settings;
+            notifier.updateSettings(settings.copyWith(
+              isPremium: true,
+              premiumKey: _licenseCtrl.text.trim(),
+            ));
+          }
           setState(() {
             _successMessage = 'Аккаунт успешно создан! Введите пароль для входа.';
             _mode = _AuthMode.login;
+            _licenseCtrl.clear();
           });
         } else {
           setState(() => _errorMessage = res.message);
@@ -248,6 +261,23 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                     hint: '••••••••',
                     controller: _passCtrl,
                     obscureText: true,
+                  ),
+                  const SizedBox(height: 12),
+                  // License key field
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      RpTextField(
+                        label: 'Лицензионный ключ (необязательно)',
+                        hint: 'AMAZING-XXXX-XXXX-XXXX',
+                        controller: _licenseCtrl,
+                      ),
+                      const SizedBox(height: 4),
+                      const Text(
+                        'Если у вас есть ключ — введите его для активации Premium сразу.',
+                        style: TextStyle(fontSize: 10, color: AppColors.textDim),
+                      ),
+                    ],
                   ),
                 ],
 

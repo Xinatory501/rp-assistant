@@ -20,6 +20,8 @@ class AppSettings {
   final bool isOverlayMode;
   final String customGamePath;
   final String overlayAttachmentMode; // 'game_bound' or 'floating'
+  final bool gamePathConfigured; // whether game path wizard was shown
+  final String gamePath; // path to Amazing Online game folder
 
   const AppSettings({
     this.hotkey = 'Insert',
@@ -43,6 +45,8 @@ class AppSettings {
     this.isOverlayMode = false,
     this.customGamePath = '',
     this.overlayAttachmentMode = 'game_bound',
+    this.gamePathConfigured = false,
+    this.gamePath = '',
   });
 
   AppSettings copyWith({
@@ -67,6 +71,8 @@ class AppSettings {
     bool? isOverlayMode,
     String? customGamePath,
     String? overlayAttachmentMode,
+    bool? gamePathConfigured,
+    String? gamePath,
   }) {
     return AppSettings(
       hotkey: hotkey ?? this.hotkey,
@@ -90,6 +96,8 @@ class AppSettings {
       isOverlayMode: isOverlayMode ?? this.isOverlayMode,
       customGamePath: customGamePath ?? this.customGamePath,
       overlayAttachmentMode: overlayAttachmentMode ?? this.overlayAttachmentMode,
+      gamePathConfigured: gamePathConfigured ?? this.gamePathConfigured,
+      gamePath: gamePath ?? this.gamePath,
     );
   }
 
@@ -115,6 +123,8 @@ class AppSettings {
     'isOverlayMode': isOverlayMode,
     'customGamePath': customGamePath,
     'overlayAttachmentMode': overlayAttachmentMode,
+    'gamePathConfigured': gamePathConfigured,
+    'gamePath': gamePath,
   };
 
   factory AppSettings.fromJson(Map<String, dynamic> json) => AppSettings(
@@ -139,6 +149,8 @@ class AppSettings {
     isOverlayMode: json['isOverlayMode'] as bool? ?? false,
     customGamePath: json['customGamePath'] as String? ?? '',
     overlayAttachmentMode: json['overlayAttachmentMode'] as String? ?? 'game_bound',
+    gamePathConfigured: json['gamePathConfigured'] as bool? ?? false,
+    gamePath: json['gamePath'] as String? ?? '',
   );
 }
 

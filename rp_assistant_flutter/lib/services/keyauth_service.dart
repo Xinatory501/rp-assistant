@@ -437,6 +437,48 @@ class KeyAuthService {
       isPremium: isPrem,
     );
   }
+
+  // 4. Validate a standalone license key (for activation dialog)
+  static Future<AuthResult> validateAndActivateKey(String key) async {
+    final trimmed = key.trim();
+    if (trimmed.isEmpty) {
+      return const AuthResult(success: false, message: 'Ключ не может быть пустым');
+    }
+    final sig = _verifyCryptographicSignature(trimmed);
+    if (sig.valid) {
+      return AuthResult(
+        success: true,
+        message: 'Ключ активирован! ${sig.subscription} — действует до ${sig.expiry}',
+        isPremium: true,
+        subscription: sig.subscription,
+        expiry: sig.expiry,
+      );
+    }
+    // Try remote API verify
+    try {
+      final res = await http.post(
+        Uri.parse(_verifyApiUrl),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'key': trimmed}),
+      ).timeout(const Duration(seconds: 5));
+      if (res.statusCode == 200) {
+        final body = jsonDecode(res.body);
+        if (body['valid'] == true) {
+          return AuthResult(
+            success: true,
+            message: 'Ключ активирован! ${body['subscription'] ?? 'PRO'}',
+            isPremium: true,
+            subscription: body['subscription'],
+            expiry: body['expiry'],
+          );
+        }
+      }
+    } catch (_) {}
+    return const AuthResult(
+      success: false,
+      message: 'Недействительный лицензионный ключ. Проверьте правильность и попробуйте снова.',
+    );
+  }
 }
 
 

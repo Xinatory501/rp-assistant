@@ -5,6 +5,7 @@ import 'package:window_manager/window_manager.dart';
 import '../providers/app_store_provider.dart';
 import '../constants/servers.dart';
 import '../services/game_detector.dart';
+import '../services/keyauth_service.dart';
 import '../services/lua_injector_service.dart';
 import '../widgets/app_theme.dart';
 import '../widgets/common.dart';
@@ -91,13 +92,15 @@ class _LauncherScreenState extends ConsumerState<LauncherScreen> {
       _injectResult = null;
     });
 
+    final gamePath = state.settings.gamePath.isNotEmpty
+        ? state.settings.gamePath
+        : state.settings.customGamePath;
+
     final result = await LuaInjectorService.inject(
       profile: profile,
       binds: state.binds,
       hints: state.hints,
-      moonloaderDir: state.settings.customGamePath.isNotEmpty
-          ? '${state.settings.customGamePath}\\moonloader'
-          : null,
+      moonloaderDir: gamePath.isNotEmpty ? '$gamePath\\moonloader' : null,
     );
 
     if (mounted) {
@@ -106,6 +109,77 @@ class _LauncherScreenState extends ConsumerState<LauncherScreen> {
         _injectResult = result.message;
       });
     }
+  }
+
+  Future<void> _showActivateKeyDialog() async {
+    final ctrl = TextEditingController();
+    String? error;
+    await showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setInner) => AlertDialog(
+          backgroundColor: const Color(0xFF1A1918),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          title: const Text('Ввести лицензионный ключ',
+              style: TextStyle(fontSize: 15, color: Colors.white)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: ctrl,
+                style: const TextStyle(color: Colors.white, fontSize: 13, fontFamily: 'monospace'),
+                decoration: InputDecoration(
+                  hintText: 'AMAZING-XXXX-XXXX-XXXX',
+                  hintStyle: const TextStyle(color: Color(0xFF555555)),
+                  filled: true,
+                  fillColor: const Color(0xFF111111),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: const BorderSide(color: Color(0xFF333333)),
+                  ),
+                ),
+              ),
+              if (error != null) ...[
+                const SizedBox(height: 8),
+                Text(error!, style: const TextStyle(color: Color(0xFFFF6B6B), fontSize: 11)),
+              ],
+              const SizedBox(height: 8),
+              const Text(
+                'Приобрести ключ можно на amzrp.vercel.app',
+                style: TextStyle(fontSize: 10, color: Color(0xFF888888)),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Отмена', style: TextStyle(color: Color(0xFF888888))),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: AppColors.accent),
+              onPressed: () async {
+                final key = ctrl.text.trim();
+                if (key.isEmpty) return;
+                final notifier = ref.read(appStoreProvider.notifier);
+                final settings = ref.read(appStoreProvider).settings;
+                final res = await KeyAuthService.validateAndActivateKey(key);
+                if (res.success) {
+                  notifier.updateSettings(settings.copyWith(
+                    isPremium: true,
+                    premiumKey: key,
+                  ));
+                  if (ctx.mounted) Navigator.pop(ctx);
+                } else {
+                  setInner(() => error = res.message);
+                }
+              },
+              child: const Text('Активировать'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   void _logout() {
@@ -293,7 +367,65 @@ class _LauncherScreenState extends ConsumerState<LauncherScreen> {
                         ),
                       ),
 
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 10),
+
+                      // ── Free / Premium banner ──────────────────────────
+                      if (!settings.isPremium)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: const Color(0x22F59E0B),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: const Color(0x55F59E0B)),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.star_border, size: 16, color: Color(0xFFF59E0B)),
+                              const SizedBox(width: 8),
+                              const Expanded(
+                                child: Text(
+                                  'Вы используете бесплатную версию. Ряд функций ограничен.',
+                                  style: TextStyle(fontSize: 11, color: Color(0xFFFDE68A)),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              GestureDetector(
+                                onTap: _showActivateKeyDialog,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFF59E0B),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: const Text(
+                                    'Ввести ключ',
+                                    style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.black),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              GestureDetector(
+                                onTap: () {
+                                  // Open site
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF1A1818),
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(color: const Color(0xFF444444)),
+                                  ),
+                                  child: const Text(
+                                    'Купить',
+                                    style: TextStyle(fontSize: 10, color: Color(0xFFF59E0B)),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                      const SizedBox(height: 6),
 
                       // Error Diagnostic Modal Banner
                       if (_launchError != null) ...[

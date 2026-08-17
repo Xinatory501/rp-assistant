@@ -109,7 +109,8 @@ class AppStoreNotifier extends StateNotifier<AppState> {
       reportTemplates: initialTemplates,
       savedConfigs: configs,
       activeConfigId: activeCfgId,
-      settings: settings,
+      // Always restore saved login session, but reset overlay mode on start
+      settings: settings.copyWith(isOverlayMode: false),
       isLoading: false,
     );
   }
