@@ -1,5 +1,3 @@
-import 'package:flutter/services.dart';
-import 'package:hotkey_manager/hotkey_manager.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:window_manager/window_manager.dart';
@@ -56,49 +54,7 @@ class _MainScreenState extends ConsumerState<MainScreen> with WindowListener {
         await windowManager.show();
         await windowManager.focus();
       } catch (_) {}
-      _initHotKeys();
     });
-  }
-
-  Future<void> _initHotKeys() async {
-    try {
-      await hotKeyManager.unregisterAll();
-
-      final insertKey = HotKey(
-        key: LogicalKeyboardKey.insert,
-        scope: HotKeyScope.system,
-      );
-      await hotKeyManager.register(insertKey, keyDownHandler: (_) async {
-        try {
-          final isVis = await windowManager.isVisible();
-          if (isVis) {
-            await windowManager.hide();
-          } else {
-            await windowManager.show();
-            await windowManager.focus();
-          }
-        } catch (_) {}
-      });
-
-      final altXKey = HotKey(
-        key: LogicalKeyboardKey.keyX,
-        modifiers: [HotKeyModifier.alt],
-        scope: HotKeyScope.system,
-      );
-      await hotKeyManager.register(altXKey, keyDownHandler: (_) async {
-        try {
-          final isVis = await windowManager.isVisible();
-          if (isVis) {
-            await windowManager.hide();
-          } else {
-            await windowManager.show();
-            await windowManager.focus();
-          }
-        } catch (_) {}
-      });
-    } catch (e) {
-      debugPrint('HotKeys init warning: $e');
-    }
   }
 
   @override

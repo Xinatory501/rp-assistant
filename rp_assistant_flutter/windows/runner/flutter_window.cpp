@@ -32,10 +32,25 @@ bool FlutterWindow::OnCreate() {
 
   flutter_controller_->ForceRedraw();
 
+  // Register native global hotkeys:
+  // 1001: Insert key
+  // 1002: Alt + X
+  HWND hwnd = GetHandle();
+  if (hwnd) {
+    ::RegisterHotKey(hwnd, 1001, 0, VK_INSERT);
+    ::RegisterHotKey(hwnd, 1002, MOD_ALT, 'X');
+  }
+
   return true;
 }
 
 void FlutterWindow::OnDestroy() {
+  HWND hwnd = GetHandle();
+  if (hwnd) {
+    ::UnregisterHotKey(hwnd, 1001);
+    ::UnregisterHotKey(hwnd, 1002);
+  }
+
   if (flutter_controller_) {
     flutter_controller_ = nullptr;
   }
@@ -47,6 +62,18 @@ LRESULT
 FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
                               WPARAM const wparam,
                               LPARAM const lparam) noexcept {
+  if (message == WM_HOTKEY) {
+    if (wparam == 1001 || wparam == 1002) {
+      if (::IsWindowVisible(hwnd)) {
+        ::ShowWindow(hwnd, SW_HIDE);
+      } else {
+        ::ShowWindow(hwnd, SW_SHOW);
+        ::SetForegroundWindow(hwnd);
+      }
+      return 0;
+    }
+  }
+
   if (flutter_controller_) {
     std::optional<LRESULT> result =
         flutter_controller_->HandleTopLevelWindowProc(hwnd, message, wparam,
