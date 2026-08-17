@@ -5,6 +5,7 @@ import 'package:window_manager/window_manager.dart';
 import '../providers/app_store_provider.dart';
 import '../constants/servers.dart';
 import '../services/game_detector.dart';
+import '../services/lua_injector_service.dart';
 import '../widgets/app_theme.dart';
 import '../widgets/common.dart';
 import 'welcome_screen.dart';
@@ -24,7 +25,9 @@ class _LauncherScreenState extends ConsumerState<LauncherScreen> {
   );
   bool _isChecking = false;
   bool _isLaunchingGame = false;
+  bool _isInjecting = false;
   String? _launchError;
+  String? _injectResult;
   Timer? _pollTimer;
 
   @override
@@ -76,6 +79,33 @@ class _LauncherScreenState extends ConsumerState<LauncherScreen> {
   void _forceLaunchOverlay() {
     setState(() => _launchError = null);
     widget.onLaunchOverlay();
+  }
+
+  Future<void> _injectLua() async {
+    final state = ref.read(appStoreProvider);
+    final profile = state.activeProfile;
+    if (profile == null) return;
+
+    setState(() {
+      _isInjecting = true;
+      _injectResult = null;
+    });
+
+    final result = await LuaInjectorService.inject(
+      profile: profile,
+      binds: state.binds,
+      hints: state.hints,
+      moonloaderDir: state.settings.customGamePath.isNotEmpty
+          ? '${state.settings.customGamePath}\\moonloader'
+          : null,
+    );
+
+    if (mounted) {
+      setState(() {
+        _isInjecting = false;
+        _injectResult = result.message;
+      });
+    }
   }
 
   void _logout() {
@@ -575,6 +605,84 @@ class _LauncherScreenState extends ConsumerState<LauncherScreen> {
                           style: TextStyle(fontSize: 10.5, color: AppColors.textDim),
                         ),
                       ),
+
+                      const SizedBox(height: 12),
+
+                      // ── Lua / MoonLoader inject button ──────────────────
+                      Container(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0x559B59B6)),
+                          color: const Color(0x159B59B6),
+                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                const Icon(Icons.code, size: 15, color: Color(0xFFBB8FFF)),
+                                const SizedBox(width: 8),
+                                const Expanded(
+                                  child: Text(
+                                    'Lua-инджект в игру (MoonLoader)',
+                                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFFBB8FFF)),
+                                  ),
+                                ),
+                                SizedBox(
+                                  height: 32,
+                                  child: ElevatedButton.icon(
+                                    icon: _isInjecting
+                                        ? const SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                                        : const Icon(Icons.system_update_alt, size: 14),
+                                    label: Text(_isInjecting ? 'Устанавливаю...' : 'Инджект .lua'),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color(0xFF7D3C98),
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+                                      textStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                                    ),
+                                    onPressed: _isInjecting ? null : _injectLua,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            const Text(
+                              'Устанавливает rp_assistant.lua в папку moonloader\\scripts\\ игры.\nМеню открывается клавишей INSERT прямо внутри Amazing Online.',
+                              style: TextStyle(fontSize: 10, color: AppColors.textDim, height: 1.3),
+                            ),
+                            if (_injectResult != null) ...{
+                              const SizedBox(height: 8),
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: _injectResult!.startsWith('✅')
+                                      ? const Color(0x2222C55E)
+                                      : const Color(0x33F43F5E),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(
+                                    color: _injectResult!.startsWith('✅')
+                                        ? const Color(0x6622C55E)
+                                        : const Color(0x66F43F5E),
+                                  ),
+                                ),
+                                child: Text(
+                                  _injectResult!,
+                                  style: TextStyle(
+                                    fontSize: 10.5,
+                                    color: _injectResult!.startsWith('✅')
+                                        ? const Color(0xFF86EFAC)
+                                        : const Color(0xFFFECDD3),
+                                    height: 1.4,
+                                  ),
+                                ),
+                              ),
+                            },
+                          ],
+                        ),
+                      ),
+
                     ],
                   ),
                 ),
