@@ -3,7 +3,7 @@ import { useAppStore } from "./store";
 import Welcome from "./pages/Welcome";
 import Main from "./pages/Main";
 import Landing from "./pages/Landing";
-import AdminPanel from "./pages/AdminPanel";
+import AdminPage from "./pages/Admin";
 import FileDropZone from "./components/FileDropZone";
 
 export default function App() {
@@ -12,6 +12,7 @@ export default function App() {
   const [isAdminRoute, setIsAdminRoute] = useState(() => {
     return (
       window.location.hash === '#admin' ||
+      window.location.pathname === '/admin' ||
       window.location.pathname.includes('/admin') ||
       window.location.search.includes('admin')
     );
@@ -20,18 +21,32 @@ export default function App() {
   const isElectron = Boolean((window as any).electronAPI);
 
   useEffect(() => {
-    const handleHashChange = () => {
+    const checkRoute = () => {
       setIsAdminRoute(
         window.location.hash === '#admin' ||
+        window.location.pathname === '/admin' ||
         window.location.pathname.includes('/admin') ||
         window.location.search.includes('admin')
       );
     };
-    window.addEventListener('hashchange', handleHashChange);
-    window.addEventListener('popstate', handleHashChange);
+
+    window.addEventListener('hashchange', checkRoute);
+    window.addEventListener('popstate', checkRoute);
+
+    // Global shortcut Ctrl+Shift+A to open Admin panel
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.shiftKey && (e.key === 'A' || e.key === 'a' || e.key === 'Ф' || e.key === 'ф')) {
+        e.preventDefault();
+        window.location.hash = '#admin';
+        setIsAdminRoute(true);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+
     return () => {
-      window.removeEventListener('hashchange', handleHashChange);
-      window.removeEventListener('popstate', handleHashChange);
+      window.removeEventListener('hashchange', checkRoute);
+      window.removeEventListener('popstate', checkRoute);
+      window.removeEventListener('keydown', handleKeyDown);
     };
   }, []);
 
@@ -51,12 +66,24 @@ export default function App() {
 
   if (!loaded) {
     return (
-      <div className="w-screen h-screen flex items-center justify-center bg-zinc-950 text-white">
+      <div className="w-screen h-screen flex items-center justify-center bg-[#171615] text-white">
         <div className="flex flex-col items-center gap-3">
-          <div className="w-8 h-8 border-2 border-purple-500/30 border-t-purple-500 rounded-full animate-spin" />
-          <span className="text-xs text-zinc-500 font-mono tracking-wider">ЗАГРУЗКА RP ASSISTANT...</span>
+          <div className="w-8 h-8 border-2 border-[#d97757]/30 border-t-[#d97757] rounded-full animate-spin" />
+          <span className="text-xs text-[#8e8579] font-mono tracking-wider">ЗАГРУЗКА RP ASSISTANT...</span>
         </div>
       </div>
+    );
+  }
+
+  // Admin Route -> Render Admin Panel (Accessible via #admin, /admin, or Ctrl+Shift+A)
+  if (isAdminRoute) {
+    return (
+      <AdminPage
+        onBack={() => {
+          window.location.hash = '';
+          setIsAdminRoute(false);
+        }}
+      />
     );
   }
 
@@ -66,18 +93,6 @@ export default function App() {
       <FileDropZone>
         {settings.firstRun ? <Welcome /> : <Main />}
       </FileDropZone>
-    );
-  }
-
-  // Web Admin Panel Route (e.g. amzrp.vercel.app/#admin or amzrp.vercel.app/?admin)
-  if (isAdminRoute) {
-    return (
-      <AdminPanel
-        onBackToSite={() => {
-          window.location.hash = '';
-          setIsAdminRoute(false);
-        }}
-      />
     );
   }
 
@@ -91,4 +106,3 @@ export default function App() {
     />
   );
 }
-

@@ -839,11 +839,14 @@ export default function Landing({ onOpenApp }: LandingProps) {
           <Sparkles size={14} className="text-[#d97757]" />
           <span>© 2026 RP Assistant. Для игроков Amazing Online.</span>
         </div>
-        <div className="flex gap-4">
+        <div className="flex flex-wrap gap-4 items-center justify-center">
           <a href="#features" className="hover:text-[#ede5dc] transition-colors">Возможности</a>
           <a href="#orgs" className="hover:text-[#ede5dc] transition-colors">Фракции</a>
           <a href="#pricing" className="hover:text-[#ede5dc] transition-colors">Тарифы</a>
           <a href="#faq" className="hover:text-[#ede5dc] transition-colors">FAQ</a>
+          <a href="#admin" className="text-[#8e8579] hover:text-[#d97757] transition-colors flex items-center gap-1 font-mono text-[11px]">
+            <Lock size={11} /> Вход для админа
+          </a>
         </div>
       </footer>
 

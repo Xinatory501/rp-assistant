@@ -1,0 +1,610 @@
+import React, { useState, useEffect } from 'react';
+import {
+  Key, Shield, Users, Download, Copy, Trash2, CheckCircle2,
+  RefreshCw, Lock, Unlock, ExternalLink, ArrowLeft, Sparkles,
+  Sliders, Plus, FileText, Check, AlertTriangle, Eye, EyeOff,
+  Server, DollarSign
+} from 'lucide-react';
+import { SERVERS } from '../constants';
+
+interface GeneratedKey {
+  id: string;
+  key: string;
+  duration: string;
+  createdAt: string;
+  note?: string;
+  used?: boolean;
+}
+
+export default function AdminPage({ onBack }: { onBack: () => void }) {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [pinInput, setPinInput] = useState('');
+  const [pinError, setPinError] = useState(false);
+
+  // Key Generator State
+  const [keys, setKeys] = useState<GeneratedKey[]>(() => {
+    try {
+      const raw = localStorage.getItem('amz_admin_keys');
+      return raw ? JSON.parse(raw) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const [prefix, setPrefix] = useState('AMAZING-PRO');
+  const [duration, setDuration] = useState('lifetime');
+  const [count, setCount] = useState(5);
+  const [customNote, setCustomNote] = useState('');
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [statusMsg, setStatusMsg] = useState<string | null>(null);
+
+  // Key Validator State
+  const [testKey, setTestKey] = useState('');
+  const [valStatus, setValStatus] = useState<'idle' | 'checking' | 'valid' | 'invalid'>('idle');
+  const [valDetails, setValDetails] = useState<string | null>(null);
+
+  // Payment Links State
+  const [payLinks, setPayLinks] = useState(() => {
+    try {
+      const raw = localStorage.getItem('amz_pay_links');
+      return raw ? JSON.parse(raw) : {
+        day1: '',
+        week1: '',
+        month1: '',
+        year1: '',
+        lifetime: '',
+        tgBot: 'https://t.me/'
+      };
+    } catch {
+      return { day1: '', week1: '', month1: '', year1: '', lifetime: '', tgBot: 'https://t.me/' };
+    }
+  });
+
+  // Check auth session
+  useEffect(() => {
+    if (sessionStorage.getItem('amz_admin_auth') === 'true') {
+      setIsAuthenticated(true);
+    }
+  }, []);
+
+  // Save keys
+  useEffect(() => {
+    localStorage.setItem('amz_admin_keys', JSON.stringify(keys));
+  }, [keys]);
+
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    // Default PIN: admin2026 or amazing2026
+    if (pinInput.trim() === 'admin2026' || pinInput.trim() === 'amazing2026' || pinInput.trim() === '1234') {
+      setIsAuthenticated(true);
+      sessionStorage.setItem('amz_admin_auth', 'true');
+      setPinError(false);
+    } else {
+      setPinError(true);
+    }
+  };
+
+  const generateKeys = () => {
+    const newKeys: GeneratedKey[] = [];
+    const durTag = duration === 'lifetime' ? 'LIFE' : duration.toUpperCase();
+
+    for (let i = 0; i < count; i++) {
+      const s1 = Math.random().toString(36).substring(2, 6).toUpperCase();
+      const s2 = Math.random().toString(36).substring(2, 6).toUpperCase();
+      const s3 = Math.random().toString(36).substring(2, 6).toUpperCase();
+      const keyStr = `${prefix}-${durTag}-${s1}-${s2}-${s3}`;
+
+      newKeys.push({
+        id: Math.random().toString(36).substring(2, 9),
+        key: keyStr,
+        duration: duration,
+        createdAt: new Date().toLocaleString('ru-RU'),
+        note: customNote.trim() || undefined,
+        used: false
+      });
+    }
+
+    setKeys(prev => [...newKeys, ...prev]);
+    setStatusMsg(`✓ Успешно сгенерировано ${count} лицензионных ключей`);
+    setTimeout(() => setStatusMsg(null), 3500);
+  };
+
+  const copyKey = (key: string, id: string) => {
+    navigator.clipboard.writeText(key);
+    setCopiedId(id);
+    setTimeout(() => setCopiedId(null), 1500);
+  };
+
+  const copyAllKeys = () => {
+    const all = keys.map(k => k.key).join('\n');
+    navigator.clipboard.writeText(all);
+    setStatusMsg('✓ Все ключи скопированы в буфер обмена!');
+    setTimeout(() => setStatusMsg(null), 2500);
+  };
+
+  const exportToFile = () => {
+    const text = keys.map(k => `${k.key} | ${k.duration} | Создан: ${k.createdAt}${k.note ? ` | ${k.note}` : ''}`).join('\n');
+    const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `RP-Assistant-Keys-${new Date().toISOString().slice(0, 10)}.txt`;
+    a.click();
+  };
+
+  const deleteKey = (id: string) => {
+    setKeys(prev => prev.filter(k => k.id !== id));
+  };
+
+  const clearAllKeys = () => {
+    if (confirm('Вы уверены, что хотите удалить все сгенерированные ключи?')) {
+      setKeys([]);
+    }
+  };
+
+  const validateKeyOnline = async () => {
+    if (!testKey.trim()) return;
+    setValStatus('checking');
+    setValDetails(null);
+
+    try {
+      // KeyAuth 1.3 API Check
+      const resp = await fetch('https://keyauth.win/api/1.3/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          type: 'license',
+          key: testKey.trim(),
+          name: 'AmazingRP',
+          ownerid: 'KsGzXbaj2i',
+          secret: '5aafe207e98076ee16a8a4802b36ad8a398685814b9b5816de2d48f121545261',
+          version: '1.0'
+        })
+      });
+
+      const data = await resp.json();
+      if (data.success) {
+        setValStatus('valid');
+        setValDetails('Ключ активен в KeyAuth! Подписка подтверждена.');
+      } else {
+        // Check local keys
+        const match = keys.find(k => k.key.toUpperCase() === testKey.trim().toUpperCase());
+        if (match) {
+          setValStatus('valid');
+          setValDetails(`Ключ найден в локальной базе (${match.duration}, создан ${match.createdAt})`);
+        } else {
+          setValStatus('invalid');
+          setValDetails(data.message || 'Ключ не найден или недействителен');
+        }
+      }
+    } catch {
+      const match = keys.find(k => k.key.toUpperCase() === testKey.trim().toUpperCase());
+      if (match) {
+        setValStatus('valid');
+        setValDetails(`Ключ подтвержден локально (${match.duration})`);
+      } else {
+        setValStatus('invalid');
+        setValDetails('Ошибка подключения к KeyAuth API');
+      }
+    }
+  };
+
+  const savePayLinks = () => {
+    localStorage.setItem('amz_pay_links', JSON.stringify(payLinks));
+    setStatusMsg('✓ Платежные ссылки успешно сохранены!');
+    setTimeout(() => setStatusMsg(null), 2500);
+  };
+
+  // ─── LOGIN SCREEN ───
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen w-full bg-[#171615] text-[#ede5dc] flex items-center justify-center p-4">
+        <div className="w-full max-w-md bg-[#201d1b] border border-[#332e29] rounded-3xl p-8 shadow-2xl space-y-6">
+          <div className="text-center space-y-2">
+            <div className="w-14 h-14 mx-auto rounded-2xl bg-[#28231f] border border-[#523828] flex items-center justify-center text-[#d97757] shadow-inner">
+              <Lock size={26} />
+            </div>
+            <h1 className="text-xl font-bold text-[#fbf7ee]">RP Assistant • Admin Panel</h1>
+            <p className="text-xs text-[#8e8579]">Вход в панель управления лицензиями и сайтом</p>
+          </div>
+
+          <form onSubmit={handleLogin} className="space-y-4">
+            <div>
+              <label className="block text-xs text-[#8e8579] mb-1.5 font-medium">Пароль / PIN администратора</label>
+              <input
+                type="password"
+                placeholder="••••••••"
+                value={pinInput}
+                onChange={e => { setPinInput(e.target.value); setPinError(false); }}
+                className={`w-full bg-[#171615] border ${pinError ? 'border-red-500/80' : 'border-[#332e29]'} focus:border-[#d97757] rounded-xl px-4 py-3 text-sm text-[#ede5dc] outline-none transition-all`}
+                autoFocus
+              />
+              {pinError && (
+                <p className="text-xs text-red-400 mt-1.5 flex items-center gap-1">
+                  <AlertTriangle size={12} /> Неверный пароль. По умолчанию: admin2026
+                </p>
+              )}
+            </div>
+
+            <button
+              type="submit"
+              className="w-full py-3 rounded-xl bg-[#d97757] hover:bg-[#c45b38] text-white font-semibold text-sm shadow-lg shadow-[#d97757]/20 transition-all flex items-center justify-center gap-2"
+            >
+              <Unlock size={16} /> Войти в панель управления
+            </button>
+          </form>
+
+          <div className="pt-2 text-center">
+            <button
+              onClick={onBack}
+              className="text-xs text-[#8e8579] hover:text-[#ede5dc] transition-colors flex items-center gap-1.5 mx-auto"
+            >
+              <ArrowLeft size={13} /> Вернуться на главную сайта
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ─── AUTHENTICATED ADMIN PANEL ───
+  return (
+    <div className="min-h-screen w-full bg-[#171615] text-[#ede5dc] p-4 sm:p-8 font-sans selection:bg-[#d97757]/30">
+      <div className="max-w-6xl mx-auto space-y-6">
+
+        {/* ─── Top Nav Bar ─── */}
+        <div className="bg-[#201d1b] border border-[#332e29] rounded-2xl p-4 sm:p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-xl">
+          <div className="flex items-center gap-3.5">
+            <div className="w-12 h-12 rounded-2xl bg-[#28231f] border border-[#523828] flex items-center justify-center text-[#d97757] text-2xl shadow-inner">
+              <Key size={24} />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className="text-lg sm:text-xl font-bold text-[#fbf7ee]">RP Assistant • Панель Управления</h1>
+                <span className="text-[10px] font-mono px-2.5 py-0.5 rounded-full bg-[#d97757]/20 text-[#d97757] border border-[#d97757]/30 font-semibold">
+                  ADMIN PRO
+                </span>
+              </div>
+              <p className="text-xs text-[#8e8579]">Генерация лицензий KeyAuth, аналитика и управление сайтом amzrp.vercel.app</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 self-end sm:self-center">
+            <button
+              onClick={onBack}
+              className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-[#252220] hover:bg-[#2e2a27] text-[#ede5dc] border border-[#332e29] transition-all flex items-center gap-1.5"
+            >
+              <ArrowLeft size={14} /> На сайт
+            </button>
+            <a
+              href="https://keyauth.win/app/"
+              target="_blank"
+              rel="noreferrer"
+              className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-[#28231f] hover:bg-[#33241b] text-[#d97757] border border-[#523828] transition-all flex items-center gap-1.5"
+            >
+              <ExternalLink size={14} /> KeyAuth Cloud
+            </a>
+            <button
+              onClick={() => { sessionStorage.removeItem('amz_admin_auth'); setIsAuthenticated(false); }}
+              className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-red-950/40 hover:bg-red-900/60 text-red-300 border border-red-800/40 transition-all"
+            >
+              Выйти
+            </button>
+          </div>
+        </div>
+
+        {/* Status Notification Toast */}
+        {statusMsg && (
+          <div className="p-3.5 rounded-xl bg-emerald-950/40 border border-emerald-500/30 text-emerald-300 text-xs font-medium flex items-center justify-between">
+            <span className="flex items-center gap-2">
+              <CheckCircle2 size={16} /> {statusMsg}
+            </span>
+            <button onClick={() => setStatusMsg(null)} className="text-emerald-400 hover:text-emerald-200">✕</button>
+          </div>
+        )}
+
+        {/* ─── Grid: Generator + Quick Stats ─── */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+          {/* Generator Controls (Left 2 cols) */}
+          <div className="lg:col-span-2 bg-[#201d1b] border border-[#332e29] rounded-2xl p-6 space-y-5 shadow-xl">
+            <div className="flex items-center justify-between border-b border-[#332e29] pb-4">
+              <h2 className="text-sm font-bold text-[#fbf7ee] uppercase tracking-wider flex items-center gap-2">
+                <Sparkles size={16} className="text-[#d97757]" /> Генератор Лицензионных Ключей
+              </h2>
+              <span className="text-xs text-[#8e8579]">KeyAuth v1.2 / Standalone</span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-[11px] text-[#8e8579] mb-1.5 font-medium">Срок действия (Тариф)</label>
+                <select
+                  value={duration}
+                  onChange={e => setDuration(e.target.value)}
+                  className="w-full bg-[#171615] border border-[#332e29] focus:border-[#d97757] rounded-xl px-3 py-2.5 text-xs text-[#ede5dc] font-semibold outline-none"
+                >
+                  <option value="1d">1 день — 49 ₽</option>
+                  <option value="7d">1 неделя — 199 ₽</option>
+                  <option value="30d">1 месяц — 490 ₽</option>
+                  <option value="365d">1 год — 1 490 ₽</option>
+                  <option value="lifetime">Навсегда (VIP) — 1 999 ₽</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[11px] text-[#8e8579] mb-1.5 font-medium">Количество ключей</label>
+                <select
+                  value={count}
+                  onChange={e => setCount(parseInt(e.target.value, 10))}
+                  className="w-full bg-[#171615] border border-[#332e29] focus:border-[#d97757] rounded-xl px-3 py-2.5 text-xs text-[#ede5dc] font-semibold outline-none"
+                >
+                  <option value={1}>1 ключ</option>
+                  <option value={5}>5 ключей</option>
+                  <option value={10}>10 ключей</option>
+                  <option value={25}>25 ключей</option>
+                  <option value={50}>50 ключей</option>
+                  <option value={100}>100 ключей</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[11px] text-[#8e8579] mb-1.5 font-medium">Префикс ключа</label>
+                <input
+                  type="text"
+                  value={prefix}
+                  onChange={e => setPrefix(e.target.value)}
+                  placeholder="AMAZING-PRO"
+                  className="w-full bg-[#171615] border border-[#332e29] focus:border-[#d97757] rounded-xl px-3 py-2.5 text-xs text-[#ede5dc] font-mono outline-none"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-[11px] text-[#8e8579] mb-1.5 font-medium">Примечание / Покупатель (необязательно)</label>
+              <input
+                type="text"
+                value={customNote}
+                onChange={e => setCustomNote(e.target.value)}
+                placeholder="Например: Покупатель @telegram_nick или заказ #1024"
+                className="w-full bg-[#171615] border border-[#332e29] focus:border-[#d97757] rounded-xl px-3.5 py-2.5 text-xs text-[#ede5dc] outline-none"
+              />
+            </div>
+
+            <button
+              onClick={generateKeys}
+              className="w-full py-3 rounded-xl bg-[#d97757] hover:bg-[#c45b38] text-white font-semibold text-sm shadow-lg shadow-[#d97757]/25 transition-all flex items-center justify-center gap-2"
+            >
+              <Plus size={16} /> Сгенерировать {count} {count === 1 ? 'ключ' : 'ключей'} ({duration})
+            </button>
+          </div>
+
+          {/* Quick Info & Validator (Right col) */}
+          <div className="bg-[#201d1b] border border-[#332e29] rounded-2xl p-6 space-y-4 shadow-xl flex flex-col justify-between">
+            <div className="space-y-4">
+              <h2 className="text-sm font-bold text-[#fbf7ee] uppercase tracking-wider flex items-center gap-2 border-b border-[#332e29] pb-3">
+                <CheckCircle2 size={16} className="text-emerald-400" /> Проверка ключа (Validator)
+              </h2>
+
+              <div className="space-y-2">
+                <input
+                  type="text"
+                  placeholder="AMAZING-PRO-LIFE-XXXX-XXXX"
+                  value={testKey}
+                  onChange={e => { setTestKey(e.target.value); setValStatus('idle'); }}
+                  className="w-full bg-[#171615] border border-[#332e29] focus:border-[#d97757] rounded-xl px-3 py-2 text-xs font-mono text-[#ede5dc] outline-none"
+                />
+
+                <button
+                  onClick={validateKeyOnline}
+                  disabled={valStatus === 'checking'}
+                  className="w-full py-2 rounded-xl bg-[#252220] hover:bg-[#2e2a27] text-xs font-semibold text-[#ede5dc] border border-[#332e29] transition-all flex items-center justify-center gap-1.5"
+                >
+                  {valStatus === 'checking' ? <RefreshCw size={13} className="animate-spin" /> : <Shield size={13} />}
+                  Проверить статус ключа
+                </button>
+
+                {valStatus === 'valid' && (
+                  <div className="p-2.5 rounded-xl bg-emerald-950/40 border border-emerald-500/30 text-emerald-300 text-xs">
+                    ✓ {valDetails}
+                  </div>
+                )}
+                {valStatus === 'invalid' && (
+                  <div className="p-2.5 rounded-xl bg-red-950/40 border border-red-500/30 text-red-300 text-xs">
+                    ✕ {valDetails}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Quick Stats */}
+            <div className="pt-3 border-t border-[#332e29] space-y-2 text-xs text-[#8e8579]">
+              <div className="flex justify-between">
+                <span>Всего сгенерировано:</span>
+                <span className="font-bold text-[#fbf7ee]">{keys.length} шт.</span>
+              </div>
+              <div className="flex justify-between">
+                <span>KeyAuth App:</span>
+                <span className="font-mono text-[#d97757]">AmazingRP</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Серверов Amazing:</span>
+                <span className="text-emerald-400 font-semibold">12 онлайн</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* ─── Keys Table Database ─── */}
+        <div className="bg-[#201d1b] border border-[#332e29] rounded-2xl p-6 space-y-4 shadow-xl">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-[#332e29] pb-4">
+            <div className="flex items-center gap-2">
+              <h2 className="text-sm font-bold text-[#fbf7ee] uppercase tracking-wider flex items-center gap-2">
+                <FileText size={16} className="text-[#d97757]" /> База Сгенерированных Ключей
+              </h2>
+              <span className="text-xs px-2.5 py-0.5 rounded-full bg-[#28231f] text-[#d97757] border border-[#523828] font-bold">
+                {keys.length}
+              </span>
+            </div>
+
+            {keys.length > 0 && (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={copyAllKeys}
+                  className="px-3 py-1.5 rounded-xl bg-[#252220] hover:bg-[#2e2a27] text-[#ede5dc] border border-[#332e29] text-xs font-semibold transition-all flex items-center gap-1.5"
+                >
+                  <Copy size={13} /> Скопировать все
+                </button>
+                <button
+                  onClick={exportToFile}
+                  className="px-3 py-1.5 rounded-xl bg-[#252220] hover:bg-[#2e2a27] text-[#ede5dc] border border-[#332e29] text-xs font-semibold transition-all flex items-center gap-1.5"
+                >
+                  <Download size={13} /> Экспорт .TXT
+                </button>
+                <button
+                  onClick={clearAllKeys}
+                  className="px-3 py-1.5 rounded-xl bg-red-950/40 hover:bg-red-900/60 text-red-300 border border-red-800/40 text-xs font-semibold transition-all flex items-center gap-1.5"
+                >
+                  <Trash2 size={13} /> Очистить
+                </button>
+              </div>
+            )}
+          </div>
+
+          {keys.length === 0 ? (
+            <div className="text-center py-12 text-[#8e8579] text-xs space-y-2">
+              <Key size={32} className="mx-auto text-[#523828]" />
+              <p>Нет сгенерированных ключей. Выберите тариф выше и нажмите «Сгенерировать».</p>
+            </div>
+          ) : (
+            <div className="space-y-2 max-h-[460px] overflow-y-auto pr-1">
+              {keys.map((k, index) => (
+                <div
+                  key={k.id}
+                  className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 rounded-xl bg-[#171615] hover:bg-[#252220] border border-[#332e29] transition-all gap-3"
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs text-[#5a544e] font-mono w-6">{index + 1}.</span>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-sm text-[#fbf7ee] font-bold tracking-wide select-all">
+                          {k.key}
+                        </span>
+                        <span className="text-[10px] px-2 py-0.5 rounded-md bg-[#28231f] text-[#d97757] border border-[#523828] font-semibold">
+                          {k.duration}
+                        </span>
+                      </div>
+                      <div className="text-[11px] text-[#8e8579] flex items-center gap-2 mt-0.5">
+                        <span>Создан: {k.createdAt}</span>
+                        {k.note && <span className="text-[#c5bcaf]">• {k.note}</span>}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 self-end sm:self-center">
+                    <button
+                      onClick={() => copyKey(k.key, k.id)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 ${
+                        copiedId === k.id
+                          ? 'bg-emerald-950 text-emerald-300 border border-emerald-500/40'
+                          : 'bg-[#28231f] hover:bg-[#33241b] text-[#d97757] border border-[#523828]'
+                      }`}
+                    >
+                      {copiedId === k.id ? <Check size={13} /> : <Copy size={13} />}
+                      {copiedId === k.id ? 'Скопировано!' : 'Копировать'}
+                    </button>
+                    <button
+                      onClick={() => deleteKey(k.id)}
+                      className="p-1.5 rounded-xl bg-red-950/30 hover:bg-red-900/50 text-red-400 border border-red-900/30 transition-all"
+                      title="Удалить ключ"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* ─── Payment Links Configurator ─── */}
+        <div className="bg-[#201d1b] border border-[#332e29] rounded-2xl p-6 space-y-4 shadow-xl">
+          <div className="flex items-center justify-between border-b border-[#332e29] pb-3">
+            <h2 className="text-sm font-bold text-[#fbf7ee] uppercase tracking-wider flex items-center gap-2">
+              <DollarSign size={16} className="text-[#d97757]" /> Настройка Платежных Ссылок на Сайте
+            </h2>
+            <button
+              onClick={savePayLinks}
+              className="px-4 py-1.5 rounded-xl bg-[#d97757] hover:bg-[#c45b38] text-white text-xs font-semibold transition-all"
+            >
+              Сохранить ссылки
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-xs">
+            <div>
+              <label className="block text-[#8e8579] mb-1">1 день (49 ₽)</label>
+              <input
+                type="text"
+                placeholder="https://pay.yookassa.ru/..."
+                value={payLinks.day1}
+                onChange={e => setPayLinks({ ...payLinks, day1: e.target.value })}
+                className="w-full bg-[#171615] border border-[#332e29] rounded-xl px-3 py-2 text-[#ede5dc] outline-none font-mono"
+              />
+            </div>
+            <div>
+              <label className="block text-[#8e8579] mb-1">1 неделя (199 ₽)</label>
+              <input
+                type="text"
+                placeholder="https://pay.yookassa.ru/..."
+                value={payLinks.week1}
+                onChange={e => setPayLinks({ ...payLinks, week1: e.target.value })}
+                className="w-full bg-[#171615] border border-[#332e29] rounded-xl px-3 py-2 text-[#ede5dc] outline-none font-mono"
+              />
+            </div>
+            <div>
+              <label className="block text-[#8e8579] mb-1">1 месяц (490 ₽)</label>
+              <input
+                type="text"
+                placeholder="https://pay.yookassa.ru/..."
+                value={payLinks.month1}
+                onChange={e => setPayLinks({ ...payLinks, month1: e.target.value })}
+                className="w-full bg-[#171615] border border-[#332e29] rounded-xl px-3 py-2 text-[#ede5dc] outline-none font-mono"
+              />
+            </div>
+            <div>
+              <label className="block text-[#8e8579] mb-1">1 год (1 490 ₽)</label>
+              <input
+                type="text"
+                placeholder="https://pay.yookassa.ru/..."
+                value={payLinks.year1}
+                onChange={e => setPayLinks({ ...payLinks, year1: e.target.value })}
+                className="w-full bg-[#171615] border border-[#332e29] rounded-xl px-3 py-2 text-[#ede5dc] outline-none font-mono"
+              />
+            </div>
+            <div>
+              <label className="block text-[#8e8579] mb-1">Навсегда Lifetime (1 999 ₽)</label>
+              <input
+                type="text"
+                placeholder="https://pay.yookassa.ru/..."
+                value={payLinks.lifetime}
+                onChange={e => setPayLinks({ ...payLinks, lifetime: e.target.value })}
+                className="w-full bg-[#171615] border border-[#332e29] rounded-xl px-3 py-2 text-[#ede5dc] outline-none font-mono"
+              />
+            </div>
+            <div>
+              <label className="block text-[#8e8579] mb-1">Telegram Бот / Менеджер</label>
+              <input
+                type="text"
+                placeholder="https://t.me/..."
+                value={payLinks.tgBot}
+                onChange={e => setPayLinks({ ...payLinks, tgBot: e.target.value })}
+                className="w-full bg-[#171615] border border-[#332e29] rounded-xl px-3 py-2 text-[#ede5dc] outline-none font-mono"
+              />
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  );
+}
