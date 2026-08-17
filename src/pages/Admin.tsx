@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   Key, Shield, Users, Download, Copy, Trash2, CheckCircle2,
   RefreshCw, Lock, Unlock, ExternalLink, ArrowLeft, Sparkles,
   Sliders, Plus, FileText, Check, AlertTriangle, Eye, EyeOff,
-  Server, DollarSign, Terminal, LogOut, X
+  Server, DollarSign, Terminal, LogOut, X, Filter, ArrowUpDown,
+  Search, Layers, Sparkle, ListFilter
 } from 'lucide-react';
 
 interface GeneratedKey {
@@ -11,6 +12,7 @@ interface GeneratedKey {
   key: string;
   duration: string;
   createdAt: string;
+  timestamp: number;
   note?: string;
   used?: boolean;
 }
@@ -26,6 +28,22 @@ async function computeSha256(text: string): Promise<string> {
     .join('');
 }
 
+const TARIFF_NAMES: Record<string, string> = {
+  '1d': '1 день (49 ₽)',
+  '7d': '1 неделя (199 ₽)',
+  '30d': '1 месяц (490 ₽)',
+  '365d': '1 год (1 490 ₽)',
+  'lifetime': 'Навсегда (1 999 ₽)',
+};
+
+const TARIFF_ORDER: Record<string, number> = {
+  '1d': 1,
+  '7d': 7,
+  '30d': 30,
+  '365d': 365,
+  'lifetime': 99999,
+};
+
 export default function AdminPage({ onBack }: { onBack: () => void }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [showPrompt, setShowPrompt] = useState(false);
@@ -39,7 +57,13 @@ export default function AdminPage({ onBack }: { onBack: () => void }) {
   const [keys, setKeys] = useState<GeneratedKey[]>(() => {
     try {
       const raw = localStorage.getItem('amz_admin_keys');
-      return raw ? JSON.parse(raw) : [];
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      // Migrate old keys to include timestamp if missing
+      return parsed.map((k: any) => ({
+        ...k,
+        timestamp: k.timestamp || Date.now()
+      }));
     } catch {
       return [];
     }
@@ -51,6 +75,15 @@ export default function AdminPage({ onBack }: { onBack: () => void }) {
   const [customNote, setCustomNote] = useState('');
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
+
+  // Newly generated batch of keys for instant copy
+  const [lastBatch, setLastBatch] = useState<GeneratedKey[]>([]);
+  const [batchCopied, setBatchCopied] = useState(false);
+
+  // Filter & Search & Sort State
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterDuration, setFilterDuration] = useState<string>('all');
+  const [sortBy, setSortBy] = useState<'date-desc' | 'date-asc' | 'duration-asc' | 'duration-desc' | 'key-asc'>('date-desc');
 
   // Key Validator State
   const [testKey, setTestKey] = useState('');
@@ -135,9 +168,11 @@ export default function AdminPage({ onBack }: { onBack: () => void }) {
     setInputPass('');
   };
 
+  // Generate keys
   const generateKeys = () => {
     const newKeys: GeneratedKey[] = [];
     const durTag = duration === 'lifetime' ? 'LIFE' : duration.toUpperCase();
+    const now = Date.now();
 
     for (let i = 0; i < count; i++) {
       const s1 = Math.random().toString(36).substring(2, 6).toUpperCase();
@@ -150,14 +185,30 @@ export default function AdminPage({ onBack }: { onBack: () => void }) {
         key: keyStr,
         duration: duration,
         createdAt: new Date().toLocaleString('ru-RU'),
+        timestamp: now + i,
         note: customNote.trim() || undefined,
         used: false
       });
     }
 
     setKeys(prev => [...newKeys, ...prev]);
-    setStatusMsg(`✓ Успешно сгенерировано ${count} лицензионных ключей`);
-    setTimeout(() => setStatusMsg(null), 3500);
+    setLastBatch(newKeys);
+    setBatchCopied(false);
+    setStatusMsg(`✓ Создано ${count} ключей (${TARIFF_NAMES[duration] || duration}). Вы можете сразу скопировать их.`);
+    setTimeout(() => setStatusMsg(null), 4000);
+  };
+
+  // Copy just newly created batch
+  const copyLastBatch = () => {
+    if (lastBatch.length === 0) return;
+    const text = lastBatch.map(k => k.key).join('\n');
+    navigator.clipboard.writeText(text);
+    setBatchCopied(true);
+    setStatusMsg(`✓ ${lastBatch.length} только что созданных ключей скопированы в буфер!`);
+    setTimeout(() => {
+      setBatchCopied(false);
+      setStatusMsg(null);
+    }, 2500);
   };
 
   const copyKey = (key: string, id: string) => {
@@ -166,15 +217,15 @@ export default function AdminPage({ onBack }: { onBack: () => void }) {
     setTimeout(() => setCopiedId(null), 1500);
   };
 
-  const copyAllKeys = () => {
-    const all = keys.map(k => k.key).join('\n');
+  const copyFilteredKeys = (itemsToCopy: GeneratedKey[]) => {
+    const all = itemsToCopy.map(k => k.key).join('\n');
     navigator.clipboard.writeText(all);
-    setStatusMsg('✓ Все ключи скопированы в буфер обмена!');
+    setStatusMsg(`✓ Скопировано ${itemsToCopy.length} ключей!`);
     setTimeout(() => setStatusMsg(null), 2500);
   };
 
-  const exportToFile = () => {
-    const text = keys.map(k => `${k.key} | ${k.duration} | Создан: ${k.createdAt}${k.note ? ` | ${k.note}` : ''}`).join('\n');
+  const exportFilteredToFile = (itemsToExport: GeneratedKey[]) => {
+    const text = itemsToExport.map(k => `${k.key} | ${k.duration} | Создан: ${k.createdAt}${k.note ? ` | ${k.note}` : ''}`).join('\n');
     const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -185,11 +236,31 @@ export default function AdminPage({ onBack }: { onBack: () => void }) {
 
   const deleteKey = (id: string) => {
     setKeys(prev => prev.filter(k => k.id !== id));
+    setLastBatch(prev => prev.filter(k => k.id !== id));
+  };
+
+  // Delete all keys for specific duration (e.g. all 1-day keys)
+  const deleteKeysByDuration = (dur: string) => {
+    const countToDelete = keys.filter(k => k.duration === dur).length;
+    if (countToDelete === 0) {
+      alert(`Нет ключей с тарифом: ${TARIFF_NAMES[dur] || dur}`);
+      return;
+    }
+
+    if (confirm(`Вы уверены, что хотите удалить ВСЕ ключи на «${TARIFF_NAMES[dur] || dur}» (${countToDelete} шт.)?`)) {
+      setKeys(prev => prev.filter(k => k.duration !== dur));
+      setLastBatch(prev => prev.filter(k => k.duration !== dur));
+      setStatusMsg(`✓ Удалено ${countToDelete} ключей с тарифом: ${TARIFF_NAMES[dur] || dur}`);
+      setTimeout(() => setStatusMsg(null), 3000);
+    }
   };
 
   const clearAllKeys = () => {
-    if (confirm('Вы уверены, что хотите удалить все сгенерированные ключи?')) {
+    if (confirm('Вы уверены, что хотите удалить ВСЕ сгенерированные ключи из базы?')) {
       setKeys([]);
+      setLastBatch([]);
+      setStatusMsg('✓ База ключей полностью очищена.');
+      setTimeout(() => setStatusMsg(null), 2500);
     }
   };
 
@@ -220,7 +291,7 @@ export default function AdminPage({ onBack }: { onBack: () => void }) {
         const match = keys.find(k => k.key.toUpperCase() === testKey.trim().toUpperCase());
         if (match) {
           setValStatus('valid');
-          setValDetails(`Ключ найден в локальной базе (${match.duration}, создан ${match.createdAt})`);
+          setValDetails(`Ключ найден в локальной базе (${TARIFF_NAMES[match.duration] || match.duration}, создан ${match.createdAt})`);
         } else {
           setValStatus('invalid');
           setValDetails(data.message || 'Ключ не найден или недействителен');
@@ -230,7 +301,7 @@ export default function AdminPage({ onBack }: { onBack: () => void }) {
       const match = keys.find(k => k.key.toUpperCase() === testKey.trim().toUpperCase());
       if (match) {
         setValStatus('valid');
-        setValDetails(`Ключ подтвержден локально (${match.duration})`);
+        setValDetails(`Ключ подтвержден локально (${TARIFF_NAMES[match.duration] || match.duration})`);
       } else {
         setValStatus('invalid');
         setValDetails('Ошибка подключения к KeyAuth API');
@@ -243,6 +314,49 @@ export default function AdminPage({ onBack }: { onBack: () => void }) {
     setStatusMsg('✓ Платежные ссылки успешно сохранены!');
     setTimeout(() => setStatusMsg(null), 2500);
   };
+
+  // Filtered & Sorted Keys computation
+  const filteredAndSortedKeys = useMemo(() => {
+    let result = [...keys];
+
+    // Search query
+    if (searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase();
+      result = result.filter(k =>
+        k.key.toLowerCase().includes(q) ||
+        (k.note && k.note.toLowerCase().includes(q)) ||
+        (TARIFF_NAMES[k.duration] && TARIFF_NAMES[k.duration].toLowerCase().includes(q))
+      );
+    }
+
+    // Filter by duration
+    if (filterDuration !== 'all') {
+      result = result.filter(k => k.duration === filterDuration);
+    }
+
+    // Sorting
+    result.sort((a, b) => {
+      if (sortBy === 'date-desc') return (b.timestamp || 0) - (a.timestamp || 0);
+      if (sortBy === 'date-asc') return (a.timestamp || 0) - (b.timestamp || 0);
+      if (sortBy === 'duration-asc') return (TARIFF_ORDER[a.duration] || 0) - (TARIFF_ORDER[b.duration] || 0);
+      if (sortBy === 'duration-desc') return (TARIFF_ORDER[b.duration] || 0) - (TARIFF_ORDER[a.duration] || 0);
+      if (sortBy === 'key-asc') return a.key.localeCompare(b.key);
+      return 0;
+    });
+
+    return result;
+  }, [keys, searchQuery, filterDuration, sortBy]);
+
+  // Counts per tariff
+  const countsByTariff = useMemo(() => {
+    const map: Record<string, number> = { '1d': 0, '7d': 0, '30d': 0, '365d': 0, 'lifetime': 0 };
+    for (const k of keys) {
+      if (map[k.duration] !== undefined) {
+        map[k.duration]++;
+      }
+    }
+    return map;
+  }, [keys]);
 
   // ─── 1. DISGUISED AUTHENTIC VERCEL 404 SCREEN ───
   if (!isAuthenticated) {
@@ -363,11 +477,68 @@ export default function AdminPage({ onBack }: { onBack: () => void }) {
 
         {/* Status Notification Toast */}
         {statusMsg && (
-          <div className="p-3.5 rounded-xl bg-emerald-950/40 border border-emerald-500/30 text-emerald-300 text-xs font-medium flex items-center justify-between">
+          <div className="p-3.5 rounded-xl bg-emerald-950/40 border border-emerald-500/30 text-emerald-300 text-xs font-medium flex items-center justify-between shadow-lg">
             <span className="flex items-center gap-2">
               <CheckCircle2 size={16} /> {statusMsg}
             </span>
             <button onClick={() => setStatusMsg(null)} className="text-emerald-400 hover:text-emerald-200">✕</button>
+          </div>
+        )}
+
+        {/* ─── NEWLY GENERATED BATCH HIGHLIGHT BANNER (Quick 1-Click Copy) ─── */}
+        {lastBatch.length > 0 && (
+          <div className="bg-[#241e1a] border-2 border-[#d97757]/60 rounded-2xl p-5 shadow-2xl space-y-3 animate-in fade-in slide-in-from-top-2 duration-300">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-[#3d2e24] pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-[#d97757]/20 border border-[#d97757]/40 flex items-center justify-center text-[#d97757]">
+                  <Sparkles size={16} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-[#fbf7ee] flex items-center gap-2">
+                    Только что создано: {lastBatch.length} {lastBatch.length === 1 ? 'ключ' : 'ключей'}
+                    <span className="text-[10px] px-2 py-0.5 rounded bg-[#d97757]/30 text-[#e58a6d] font-mono font-semibold">
+                      {TARIFF_NAMES[lastBatch[0].duration] || lastBatch[0].duration}
+                    </span>
+                  </h3>
+                  <p className="text-xs text-[#8e8579]">Нажмите кнопку справа, чтобы скопировать только эти свежие ключи</p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 self-end sm:self-center">
+                <button
+                  onClick={copyLastBatch}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shadow-lg ${
+                    batchCopied
+                      ? 'bg-emerald-600 text-white'
+                      : 'bg-[#d97757] hover:bg-[#c45b38] text-white shadow-[#d97757]/30'
+                  }`}
+                >
+                  {batchCopied ? <Check size={15} /> : <Copy size={15} />}
+                  {batchCopied ? 'Скопировано в буфер!' : `📋 Скопировать только что созданные (${lastBatch.length} шт.)`}
+                </button>
+                <button
+                  onClick={() => setLastBatch([])}
+                  className="p-2 rounded-xl bg-[#171615] text-[#8e8579] hover:text-[#ede5dc] border border-[#332e29]"
+                  title="Закрыть плашку"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 pt-1">
+              {lastBatch.map(k => (
+                <div key={k.id} className="p-2 bg-[#171615] rounded-lg border border-[#3d2e24] flex items-center justify-between gap-2">
+                  <span className="font-mono text-xs text-[#d97757] font-bold select-all truncate">{k.key}</span>
+                  <button
+                    onClick={() => copyKey(k.key, k.id)}
+                    className="text-[11px] text-[#8e8579] hover:text-white"
+                  >
+                    {copiedId === k.id ? '✓' : 'копия'}
+                  </button>
+                </div>
+              ))}
+            </div>
           </div>
         )}
 
@@ -380,7 +551,7 @@ export default function AdminPage({ onBack }: { onBack: () => void }) {
               <h2 className="text-sm font-bold text-[#fbf7ee] uppercase tracking-wider flex items-center gap-2">
                 <Sparkles size={16} className="text-[#d97757]" /> Генератор Лицензионных Ключей
               </h2>
-              <span className="text-xs text-[#8e8579]">KeyAuth v1.2 / Standalone</span>
+              <span className="text-xs text-[#8e8579]">KeyAuth v1.3</span>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -442,7 +613,7 @@ export default function AdminPage({ onBack }: { onBack: () => void }) {
               onClick={generateKeys}
               className="w-full py-3 rounded-xl bg-[#d97757] hover:bg-[#c45b38] text-white font-semibold text-sm shadow-lg shadow-[#d97757]/25 transition-all flex items-center justify-center gap-2"
             >
-              <Plus size={16} /> Сгенерировать {count} {count === 1 ? 'ключ' : 'ключей'} ({duration})
+              <Plus size={16} /> Сгенерировать {count} {count === 1 ? 'ключ' : 'ключей'} ({TARIFF_NAMES[duration] || duration})
             </button>
           </div>
 
@@ -484,46 +655,105 @@ export default function AdminPage({ onBack }: { onBack: () => void }) {
               </div>
             </div>
 
-            {/* Quick Stats */}
-            <div className="pt-3 border-t border-[#332e29] space-y-2 text-xs text-[#8e8579]">
+            {/* Quick Stats Summary */}
+            <div className="pt-3 border-t border-[#332e29] space-y-1.5 text-xs text-[#8e8579]">
               <div className="flex justify-between">
-                <span>Всего сгенерировано:</span>
+                <span>Всего ключей в базе:</span>
                 <span className="font-bold text-[#fbf7ee]">{keys.length} шт.</span>
               </div>
-              <div className="flex justify-between">
-                <span>KeyAuth App:</span>
-                <span className="font-mono text-[#d97757]">AmazingRP</span>
+              <div className="flex justify-between text-[11px]">
+                <span>1 день / Неделя:</span>
+                <span className="text-[#ede5dc] font-mono">{countsByTariff['1d']} шт. / {countsByTariff['7d']} шт.</span>
               </div>
-              <div className="flex justify-between">
-                <span>Серверов Amazing:</span>
-                <span className="text-emerald-400 font-semibold">12 онлайн</span>
+              <div className="flex justify-between text-[11px]">
+                <span>Месяц / Год / VIP:</span>
+                <span className="text-[#ede5dc] font-mono">{countsByTariff['30d']} / {countsByTariff['365d']} / {countsByTariff['lifetime']}</span>
               </div>
             </div>
           </div>
         </div>
 
-        {/* ─── Keys Table Database ─── */}
+        {/* ─── MASS DELETION BY TARIFF BAR (1 Day, 1 Week, etc.) ─── */}
+        <div className="bg-[#201d1b] border border-[#332e29] rounded-2xl p-4 sm:p-5 shadow-xl space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-bold text-[#fbf7ee] uppercase tracking-wider flex items-center gap-2">
+              <Trash2 size={14} className="text-red-400" /> Быстрое удаление ключей по тарифам:
+            </h3>
+            <span className="text-[11px] text-[#8e8579]">Удаляет сразу все ключи выбранной категории</span>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            {/* Direct button: Delete all 1-Day Keys */}
+            <button
+              onClick={() => deleteKeysByDuration('1d')}
+              disabled={countsByTariff['1d'] === 0}
+              className="px-3.5 py-2 rounded-xl bg-red-950/40 hover:bg-red-900/60 disabled:opacity-40 disabled:hover:bg-red-950/40 text-red-300 border border-red-800/40 text-xs font-semibold transition-all flex items-center gap-1.5"
+            >
+              <Trash2 size={13} /> Удалить все на 1 день ({countsByTariff['1d']} шт.)
+            </button>
+
+            {/* Delete 7-Day */}
+            <button
+              onClick={() => deleteKeysByDuration('7d')}
+              disabled={countsByTariff['7d'] === 0}
+              className="px-3.5 py-2 rounded-xl bg-[#252220] hover:bg-red-950/40 disabled:opacity-40 text-[#c5bcaf] hover:text-red-300 border border-[#332e29] hover:border-red-800/40 text-xs font-medium transition-all flex items-center gap-1.5"
+            >
+              Удалить на 1 неделю ({countsByTariff['7d']})
+            </button>
+
+            {/* Delete 30-Day */}
+            <button
+              onClick={() => deleteKeysByDuration('30d')}
+              disabled={countsByTariff['30d'] === 0}
+              className="px-3.5 py-2 rounded-xl bg-[#252220] hover:bg-red-950/40 disabled:opacity-40 text-[#c5bcaf] hover:text-red-300 border border-[#332e29] hover:border-red-800/40 text-xs font-medium transition-all flex items-center gap-1.5"
+            >
+              Удалить на 1 месяц ({countsByTariff['30d']})
+            </button>
+
+            {/* Delete 1-Year */}
+            <button
+              onClick={() => deleteKeysByDuration('365d')}
+              disabled={countsByTariff['365d'] === 0}
+              className="px-3.5 py-2 rounded-xl bg-[#252220] hover:bg-red-950/40 disabled:opacity-40 text-[#c5bcaf] hover:text-red-300 border border-[#332e29] hover:border-red-800/40 text-xs font-medium transition-all flex items-center gap-1.5"
+            >
+              Удалить на 1 год ({countsByTariff['365d']})
+            </button>
+
+            {/* Delete Lifetime */}
+            <button
+              onClick={() => deleteKeysByDuration('lifetime')}
+              disabled={countsByTariff['lifetime'] === 0}
+              className="px-3.5 py-2 rounded-xl bg-[#252220] hover:bg-red-950/40 disabled:opacity-40 text-[#c5bcaf] hover:text-red-300 border border-[#332e29] hover:border-red-800/40 text-xs font-medium transition-all flex items-center gap-1.5"
+            >
+              Удалить Навсегда ({countsByTariff['lifetime']})
+            </button>
+          </div>
+        </div>
+
+        {/* ─── KEYS DATABASE TABLE WITH SORTING & FILTERING ─── */}
         <div className="bg-[#201d1b] border border-[#332e29] rounded-2xl p-6 space-y-4 shadow-xl">
+
+          {/* Database Header */}
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-[#332e29] pb-4">
             <div className="flex items-center gap-2">
               <h2 className="text-sm font-bold text-[#fbf7ee] uppercase tracking-wider flex items-center gap-2">
-                <FileText size={16} className="text-[#d97757]" /> База Сгенерированных Ключей
+                <FileText size={16} className="text-[#d97757]" /> База Лицензионных Ключей
               </h2>
               <span className="text-xs px-2.5 py-0.5 rounded-full bg-[#28231f] text-[#d97757] border border-[#523828] font-bold">
-                {keys.length}
+                {filteredAndSortedKeys.length} из {keys.length}
               </span>
             </div>
 
-            {keys.length > 0 && (
-              <div className="flex items-center gap-2">
+            {filteredAndSortedKeys.length > 0 && (
+              <div className="flex flex-wrap items-center gap-2">
                 <button
-                  onClick={copyAllKeys}
+                  onClick={() => copyFilteredKeys(filteredAndSortedKeys)}
                   className="px-3 py-1.5 rounded-xl bg-[#252220] hover:bg-[#2e2a27] text-[#ede5dc] border border-[#332e29] text-xs font-semibold transition-all flex items-center gap-1.5"
                 >
-                  <Copy size={13} /> Скопировать все
+                  <Copy size={13} /> Скопировать список ({filteredAndSortedKeys.length})
                 </button>
                 <button
-                  onClick={exportToFile}
+                  onClick={() => exportFilteredToFile(filteredAndSortedKeys)}
                   className="px-3 py-1.5 rounded-xl bg-[#252220] hover:bg-[#2e2a27] text-[#ede5dc] border border-[#332e29] text-xs font-semibold transition-all flex items-center gap-1.5"
                 >
                   <Download size={13} /> Экспорт .TXT
@@ -532,20 +762,73 @@ export default function AdminPage({ onBack }: { onBack: () => void }) {
                   onClick={clearAllKeys}
                   className="px-3 py-1.5 rounded-xl bg-red-950/40 hover:bg-red-900/60 text-red-300 border border-red-800/40 text-xs font-semibold transition-all flex items-center gap-1.5"
                 >
-                  <Trash2 size={13} /> Очистить
+                  <Trash2 size={13} /> Очистить всё
                 </button>
               </div>
             )}
           </div>
 
-          {keys.length === 0 ? (
+          {/* ─── SORTING & FILTER CONTROLS TOOLBAR ─── */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-4 gap-3 bg-[#171615] p-3.5 rounded-xl border border-[#332e29]">
+            {/* Search */}
+            <div className="relative">
+              <Search size={14} className="absolute left-3 top-3 text-[#8e8579]" />
+              <input
+                type="text"
+                placeholder="Поиск по ключу или заметке..."
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                className="w-full bg-[#201d1b] border border-[#332e29] focus:border-[#d97757] rounded-xl pl-9 pr-3 py-2 text-xs text-[#ede5dc] outline-none"
+              />
+            </div>
+
+            {/* Filter by Duration */}
+            <div className="flex items-center gap-2">
+              <Filter size={14} className="text-[#8e8579] flex-shrink-0" />
+              <select
+                value={filterDuration}
+                onChange={e => setFilterDuration(e.target.value)}
+                className="w-full bg-[#201d1b] border border-[#332e29] focus:border-[#d97757] rounded-xl px-3 py-2 text-xs text-[#ede5dc] font-semibold outline-none"
+              >
+                <option value="all">Все тарифы ({keys.length})</option>
+                <option value="1d">1 день ({countsByTariff['1d']})</option>
+                <option value="7d">1 неделя ({countsByTariff['7d']})</option>
+                <option value="30d">1 месяц ({countsByTariff['30d']})</option>
+                <option value="365d">1 год ({countsByTariff['365d']})</option>
+                <option value="lifetime">Навсегда ({countsByTariff['lifetime']})</option>
+              </select>
+            </div>
+
+            {/* Sort Order */}
+            <div className="flex items-center gap-2 sm:col-span-1 lg:col-span-2">
+              <ArrowUpDown size={14} className="text-[#8e8579] flex-shrink-0" />
+              <select
+                value={sortBy}
+                onChange={e => setSortBy(e.target.value as any)}
+                className="w-full bg-[#201d1b] border border-[#332e29] focus:border-[#d97757] rounded-xl px-3 py-2 text-xs text-[#ede5dc] font-semibold outline-none"
+              >
+                <option value="date-desc">Сортировка: Сначала новые (по дате ↓)</option>
+                <option value="date-asc">Сортировка: Сначала старые (по дате ↑)</option>
+                <option value="duration-asc">Сортировка: По тарифу (от 1 дня к VIP)</option>
+                <option value="duration-desc">Сортировка: По тарифу (от VIP к 1 дню)</option>
+                <option value="key-asc">Сортировка: По алфавиту ключа (A-Z)</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Table List */}
+          {filteredAndSortedKeys.length === 0 ? (
             <div className="text-center py-12 text-[#8e8579] text-xs space-y-2">
               <Key size={32} className="mx-auto text-[#523828]" />
-              <p>Нет сгенерированных ключей. Выберите тариф выше и нажмите «Сгенерировать».</p>
+              <p>
+                {keys.length === 0
+                  ? 'Нет сгенерированных ключей. Сгенерируйте их в форме выше.'
+                  : 'Ключи по выбранным фильтрам не найдены.'}
+              </p>
             </div>
           ) : (
-            <div className="space-y-2 max-h-[460px] overflow-y-auto pr-1">
-              {keys.map((k, index) => (
+            <div className="space-y-2 max-h-[500px] overflow-y-auto pr-1">
+              {filteredAndSortedKeys.map((k, index) => (
                 <div
                   key={k.id}
                   className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 rounded-xl bg-[#171615] hover:bg-[#252220] border border-[#332e29] transition-all gap-3"
@@ -558,7 +841,7 @@ export default function AdminPage({ onBack }: { onBack: () => void }) {
                           {k.key}
                         </span>
                         <span className="text-[10px] px-2 py-0.5 rounded-md bg-[#28231f] text-[#d97757] border border-[#523828] font-semibold">
-                          {k.duration}
+                          {TARIFF_NAMES[k.duration] || k.duration}
                         </span>
                       </div>
                       <div className="text-[11px] text-[#8e8579] flex items-center gap-2 mt-0.5">
