@@ -29,66 +29,128 @@ class KeyAuthService {
 
   // Private cryptographic salt shared only with your private Admin Panel on Vercel
   static const String _secretSalt = 'AMAZING_RP_2026_SECURE_HMAC_SALT_KEYAUTH_XINATORY_9921';
+  static const int _durationXorMask = 0x5D8A;
   static const String _verifyApiUrl = 'https://amzrp.vercel.app/api/verify';
 
-  // Cryptographic Signature Verification
+  // Cryptographic Signature & Opaque Key Verification
   static ({bool valid, String subscription, String expiry, String message}) _verifyCryptographicSignature(String key) {
     final clean = key.trim().toUpperCase();
     final parts = clean.split('-');
-    if (parts.length < 4 || parts[0] != 'AMAZING') {
+
+    // 1. New Encrypted Opaque Format: AMZ-XXXX-XXXX-XXXX-XXXX
+    if (parts.length == 5 && (parts[0] == 'AMZ' || parts[0] == 'AMAZING')) {
+      final b1 = parts[1];
+      final b2 = parts[2];
+      final b3 = parts[3];
+      final b4 = parts[4]; // Signature
+
+      // Calculate HMAC-SHA256 signature
+      final base = '${parts[0]}-$b1-$b2-$b3';
+      final keyBytes = utf8.encode(_secretSalt);
+      final payloadBytes = utf8.encode(base);
+      final hmac = Hmac(sha256, keyBytes);
+      final digest = hmac.convert(payloadBytes).toString().toUpperCase();
+      final calculatedSig = digest.substring(0, b4.length.clamp(1, digest.length));
+
+      if (b4 != calculatedSig) {
+        return (
+          valid: false,
+          subscription: '',
+          expiry: '',
+          message: 'Цифровая подпись ключа недействительна (ключ подделан)',
+        );
+      }
+
+      // Verify checksum
+      final b1Num = int.tryParse(b1, radix: 16) ?? 0;
+      final b2Num = int.tryParse(b2, radix: 16) ?? 0;
+      final expectedB3 = (((b1Num * 31) + (b2Num * 17)) & 0xFFFF).toRadixString(16).padLeft(4, '0').toUpperCase();
+
+      if (b3 != expectedB3) {
+        return (
+          valid: false,
+          subscription: '',
+          expiry: '',
+          message: 'Контрольная сумма зашифрованного ключа повреждена',
+        );
+      }
+
+      // Decrypt duration
+      final rawVal = b1Num ^ _durationXorMask;
+      int days = -1;
+      bool isLifetime = true;
+      if (rawVal == 0x7FFF || rawVal == 0xFFFF) {
+        isLifetime = true;
+        days = -1;
+      } else {
+        days = rawVal;
+        isLifetime = false;
+      }
+
+      final now = DateTime.now();
+      String expiry = 'Бессрочно';
+      if (!isLifetime && days > 0) {
+        final exp = now.add(Duration(days: days));
+        expiry = '${exp.day.toString().padLeft(2, '0')}.${exp.month.toString().padLeft(2, '0')}.${exp.year}';
+      }
+
+      final subName = 'PRO ${isLifetime ? 'Lifetime' : '$days Дней'}';
+      final msg = isLifetime
+          ? '✓ Бессрочная лицензия PRO (Lifetime) успешно активирована!'
+          : '✓ Лицензия PRO на $days дней успешно активирована!';
+
       return (
-        valid: false,
-        subscription: '',
-        expiry: '',
-        message: 'Неверный формат ключа (ожидается AMAZING-...)',
+        valid: true,
+        subscription: subName,
+        expiry: expiry,
+        message: msg,
       );
     }
 
-    final payload = parts.sublist(0, parts.length - 1).join('-');
-    final providedSig = parts.last;
+    // 2. Legacy Format fallback (AMAZING-PRO-...)
+    if (parts.length >= 4 && parts[0] == 'AMAZING') {
+      final payload = parts.sublist(0, parts.length - 1).join('-');
+      final providedSig = parts.last;
 
-    final keyBytes = utf8.encode(_secretSalt);
-    final payloadBytes = utf8.encode(payload);
-    final hmac = Hmac(sha256, keyBytes);
-    final digest = hmac.convert(payloadBytes).toString().toUpperCase();
-    final calculatedSig = digest.substring(0, providedSig.length.clamp(1, digest.length));
+      final keyBytes = utf8.encode(_secretSalt);
+      final payloadBytes = utf8.encode(payload);
+      final hmac = Hmac(sha256, keyBytes);
+      final digest = hmac.convert(payloadBytes).toString().toUpperCase();
+      final calculatedSig = digest.substring(0, providedSig.length.clamp(1, digest.length));
 
-    if (providedSig != calculatedSig) {
-      return (
-        valid: false,
-        subscription: '',
-        expiry: '',
-        message: 'Цифровая подпись ключа недействительна (ключ подделан или не существует)',
-      );
+      if (providedSig == calculatedSig) {
+        int days = -1;
+        bool isLifetime = true;
+        final durPart = parts.length > 2 ? parts[2] : '';
+        if (durPart.endsWith('D')) {
+          days = int.tryParse(durPart.replaceAll('D', '')) ?? 30;
+          isLifetime = false;
+        }
+
+        final now = DateTime.now();
+        String expiry = 'Бессрочно';
+        if (!isLifetime && days > 0) {
+          final exp = now.add(Duration(days: days));
+          expiry = '${exp.day.toString().padLeft(2, '0')}.${exp.month.toString().padLeft(2, '0')}.${exp.year}';
+        }
+
+        final subName = 'PRO ${isLifetime ? 'Lifetime' : '$days Дней'}';
+        return (
+          valid: true,
+          subscription: subName,
+          expiry: expiry,
+          message: isLifetime
+              ? '✓ Бессрочная лицензия PRO (Lifetime) успешно активирована!'
+              : '✓ Лицензия PRO на $days дней успешно активирована!',
+        );
+      }
     }
-
-    // Determine duration
-    int days = -1;
-    bool isLifetime = true;
-    final durPart = parts.length > 2 ? parts[2] : '';
-    if (durPart.endsWith('D')) {
-      days = int.tryParse(durPart.replaceAll('D', '')) ?? 30;
-      isLifetime = false;
-    } else if (parts[1] == 'LIFE' || durPart == 'LIFE') {
-      isLifetime = true;
-      days = -1;
-    }
-
-    final now = DateTime.now();
-    String expiry = 'Бессрочно';
-    if (!isLifetime && days > 0) {
-      final exp = now.add(Duration(days: days));
-      expiry = '${exp.day.toString().padLeft(2, '0')}.${exp.month.toString().padLeft(2, '0')}.${exp.year}';
-    }
-
-    final subName = 'PRO ${isLifetime ? 'Lifetime' : '$days Дней'}';
-    final msg = isLifetime ? '✓ Бессрочная лицензия PRO (Lifetime) успешно активирована!' : '✓ Лицензия PRO на $days дней успешно активирована!';
 
     return (
-      valid: true,
-      subscription: subName,
-      expiry: expiry,
-      message: msg,
+      valid: false,
+      subscription: '',
+      expiry: '',
+      message: 'Недействительный или неподлинный лицензионный ключ',
     );
   }
 

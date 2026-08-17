@@ -1,48 +1,88 @@
 const crypto = require('crypto');
 
 const SECRET_SALT = 'AMAZING_RP_2026_SECURE_HMAC_SALT_KEYAUTH_XINATORY_9921';
+const DURATION_XOR_MASK = 0x5D8A;
 
 function verifyKeyCryptographic(key) {
   const clean = (key || '').trim().toUpperCase();
-  // Format: AMAZING-{TYPE}-{DURATION}-{PAYLOAD}-{SIGNATURE}
-  // Example: AMAZING-PRO-30D-A8F2-491B
-  // Or Lifetime: AMAZING-LIFE-8E12-F9A0-3C4B
   const parts = clean.split('-');
-  if (parts.length < 4 || parts[0] !== 'AMAZING') {
-    return { valid: false, message: 'Неверный формат ключа' };
+
+  // 1. New Encrypted Opaque Format: AMZ-XXXX-XXXX-XXXX-XXXX
+  if (parts.length === 5 && (parts[0] === 'AMZ' || parts[0] === 'AMAZING')) {
+    const b1 = parts[1];
+    const b2 = parts[2];
+    const b3 = parts[3];
+    const b4 = parts[4]; // Signature
+
+    // Verify HMAC-SHA256 signature
+    const base = `${parts[0]}-${b1}-${b2}-${b3}`;
+    const hmac = crypto.createHmac('sha256', SECRET_SALT)
+      .update(base)
+      .digest('hex')
+      .substring(0, 4)
+      .toUpperCase();
+
+    if (b4 !== hmac) {
+      return { valid: false, message: 'Цифровая подпись ключа недействительна (ключ подделан)' };
+    }
+
+    // Verify block 3 checksum
+    const b1Num = parseInt(b1, 16);
+    const b2Num = parseInt(b2, 16);
+    const expectedB3 = (((b1Num * 31) + (b2Num * 17)) & 0xFFFF).toString(16).padStart(4, '0').toUpperCase();
+    if (b3 !== expectedB3) {
+      return { valid: false, message: 'Контрольная сумма зашифрованного ключа повреждена' };
+    }
+
+    // Decrypt duration
+    const rawVal = b1Num ^ DURATION_XOR_MASK;
+    let days = -1;
+    let isLifetime = true;
+    if (rawVal === 0x7FFF || rawVal === 0xFFFF) {
+      isLifetime = true;
+      days = -1;
+    } else {
+      days = rawVal;
+      isLifetime = false;
+    }
+
+    return {
+      valid: true,
+      type: 'PRO',
+      days: days,
+      isLifetime: isLifetime,
+      message: isLifetime ? 'Бессрочная лицензия PRO (Lifetime)' : `Лицензия PRO на ${days} дней`
+    };
   }
 
-  // Calculate HMAC of parts before the signature
-  const payload = parts.slice(0, -1).join('-');
-  const providedSig = parts[parts.length - 1];
-  const hmac = crypto.createHmac('sha256', SECRET_SALT)
-    .update(payload)
-    .digest('hex')
-    .substring(0, providedSig.length)
-    .toUpperCase();
+  // 2. Legacy Format fallback (AMAZING-PRO-...)
+  if (parts.length >= 4 && parts[0] === 'AMAZING') {
+    const payload = parts.slice(0, -1).join('-');
+    const providedSig = parts[parts.length - 1];
+    const hmac = crypto.createHmac('sha256', SECRET_SALT)
+      .update(payload)
+      .digest('hex')
+      .substring(0, providedSig.length)
+      .toUpperCase();
 
-  if (providedSig !== hmac) {
-    return { valid: false, message: 'Цифровая подпись ключа недействительна (ключ подделан)' };
+    if (providedSig === hmac) {
+      let days = -1;
+      let isLifetime = true;
+      if (parts[2].endsWith('D')) {
+        days = parseInt(parts[2].replace('D', ''), 10) || 30;
+        isLifetime = false;
+      }
+      return {
+        valid: true,
+        type: parts[1],
+        days: days,
+        isLifetime: isLifetime,
+        message: isLifetime ? 'Бессрочная лицензия PRO (Lifetime)' : `Лицензия PRO на ${days} дней`
+      };
+    }
   }
 
-  // Extract duration
-  let days = -1;
-  let isLifetime = true;
-  if (parts[2].endsWith('D')) {
-    days = parseInt(parts[2].replace('D', ''), 10) || 30;
-    isLifetime = false;
-  } else if (parts[1] === 'LIFE' || parts[2] === 'LIFE') {
-    isLifetime = true;
-    days = -1;
-  }
-
-  return {
-    valid: true,
-    type: parts[1],
-    days: days,
-    isLifetime: isLifetime,
-    message: isLifetime ? 'Бессрочная лицензия PRO (Lifetime)' : `Лицензия PRO на ${days} дней`
-  };
+  return { valid: false, message: 'Неверный или неподлинный лицензионный ключ' };
 }
 
 module.exports = async (req, res) => {
