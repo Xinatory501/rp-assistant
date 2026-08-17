@@ -65,7 +65,7 @@ class _MainScreenState extends ConsumerState<MainScreen> with WindowListener {
       await hotKeyManager.unregisterAll();
 
       final insertKey = HotKey(
-        key: PhysicalKeyboardKey.insert,
+        key: LogicalKeyboardKey.insert,
         scope: HotKeyScope.system,
       );
       await hotKeyManager.register(insertKey, keyDownHandler: (_) async {
@@ -81,7 +81,7 @@ class _MainScreenState extends ConsumerState<MainScreen> with WindowListener {
       });
 
       final altXKey = HotKey(
-        key: PhysicalKeyboardKey.keyX,
+        key: LogicalKeyboardKey.keyX,
         modifiers: [HotKeyModifier.alt],
         scope: HotKeyScope.system,
       );

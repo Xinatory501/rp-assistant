@@ -55,12 +55,6 @@ class _InterviewTabState extends ConsumerState<InterviewTab> {
     final clean = text.trim();
     if (clean.isEmpty || _loading) return;
 
-    final apiKey = ref.read(appStoreProvider).settings.deepseekApiKey;
-    if (apiKey.isEmpty) {
-      setState(() => _error = 'Укажите API ключ DeepSeek в Настройках -> ИИ.');
-      return;
-    }
-
     _inputController.clear();
     setState(() {
       _messages.add((role: 'user', content: clean));
@@ -68,6 +62,20 @@ class _InterviewTabState extends ConsumerState<InterviewTab> {
       _error = '';
     });
     _scrollToBottom();
+
+    // If API key is not specified, provide smart offline assistance
+    if (apiKey.isEmpty) {
+      await Future.delayed(const Duration(milliseconds: 500));
+      final reply = _getOfflineInterviewResponse(clean, _targetOrg);
+      if (mounted) {
+        setState(() {
+          _messages.add((role: 'assistant', content: reply));
+          _loading = false;
+        });
+        _scrollToBottom();
+      }
+      return;
+    }
 
     try {
       final systemPrompt =
@@ -90,13 +98,50 @@ class _InterviewTabState extends ConsumerState<InterviewTab> {
         _scrollToBottom();
       }
     } catch (e) {
+      final offlineReply = _getOfflineInterviewResponse(clean, _targetOrg);
       if (mounted) {
         setState(() {
-          _error = e.toString();
+          _messages.add((
+            role: 'assistant',
+            content: '$offlineReply\n\n*(Ответ из оффлайн-базы. Ошибка онлайн DeepSeek: $e)*',
+          ));
           _loading = false;
         });
+        _scrollToBottom();
       }
     }
+  }
+
+  static String _getOfflineInterviewResponse(String query, String targetOrg) {
+    final q = query.toLowerCase();
+    if (q.contains('дм') || q.contains('deathmatch')) {
+      return '**ДМ (Deathmatch)** — убийство или нанесение урона здоровью персонажа без весомой игровой (IC) причины.';
+    }
+    if (q.contains('дб') || q.contains('driveby')) {
+      return '**ДБ (DriveBy)** — нанесение урона автомобилем, таран либо стрельба с водительского места по пешеходам.';
+    }
+    if (q.contains('ск') || q.contains('spawnkill')) {
+      return '**СК (SpawnKill)** — убийство или нанесение урона персонажу на месте его появления / возрождения.';
+    }
+    if (q.contains('тк') || q.contains('teamkill')) {
+      return '**ТК (TeamKill)** — убийство или причинение вреда сотрудникам своей же организации / фракции.';
+    }
+    if (q.contains('мг') || q.contains('metagaming')) {
+      return '**МГ (Metagaming)** — использование внеигровой информации (OOC / реальной жизни) в игровой процесс (IC).';
+    }
+    if (q.contains('пг') || q.contains('powergaming')) {
+      return '**ПГ (Powergaming)** — преувеличение физических возможностей своего персонажа, изображение супергероя (например, нападение в одиночку на толпу).';
+    }
+    if (q.contains('рп') || q.contains('термин')) {
+      return '**РП (RolePlay)** — отыгрыш выбранной роли персонажа в соответствии с правилами сервера и реальной логикой поведения.';
+    }
+    if (q.contains('первый вопрос') || q.contains('начни') || q.contains('тест')) {
+      return '### 📝 Вопрос №1 для собеседования в $targetOrg:\n\n'
+          '> *«Что такое ДМ, ДБ, СК и ТК? Дайте определение терминов.»*\n\n'
+          '*(Напишите ответ или задайте следующий вопрос)*';
+    }
+    return 'Ответ для собеседования в **$targetOrg**:\n\n'
+        '«Готов добросовестно нести службу, строго соблюдать Устав организации $targetOrg, законы области и беспрекословно выполнять приказы старшего по званию.»';
   }
 
   void _scrollToBottom() {

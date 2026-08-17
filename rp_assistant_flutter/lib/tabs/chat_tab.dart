@@ -61,12 +61,6 @@ class _ChatTabState extends ConsumerState<ChatTab> {
     final text = (customText ?? _inputController.text).trim();
     if (text.isEmpty || _loading) return;
 
-    final apiKey = ref.read(appStoreProvider).settings.deepseekApiKey;
-    if (apiKey.isEmpty) {
-      setState(() => _error = 'Укажите API-ключ DeepSeek в Настройках -> ИИ.');
-      return;
-    }
-
     if (customText == null) {
       _inputController.clear();
     }
@@ -78,15 +72,29 @@ class _ChatTabState extends ConsumerState<ChatTab> {
     });
     _scrollToBottom();
 
-    try {
-      final profile = ref.read(appStoreProvider).activeProfile;
-      final server = profile?.server ?? 'Red';
-      final org = profile?.org ?? 'УГИБДД';
-      final rank = profile?.rank ?? 'Лейтенант';
+    final profile = ref.read(appStoreProvider).activeProfile;
+    final server = profile?.server ?? 'Red';
+    final org = profile?.org ?? 'УГИБДД';
+    final rank = profile?.rank ?? 'Лейтенант';
 
+    // If API key is not specified, provide smart offline assistance
+    if (apiKey.isEmpty) {
+      await Future.delayed(const Duration(milliseconds: 600));
+      final reply = _getOfflineLawyerResponse(text, server, org, rank);
+      if (mounted) {
+        setState(() {
+          _messages.add(_ChatMessage(role: 'assistant', content: reply));
+          _loading = false;
+        });
+        _scrollToBottom();
+      }
+      return;
+    }
+
+    try {
       final systemPrompt =
           'Ты профессиональный ИИ-юрист и консультант по законодательству Amazing Online (AmazingRP/CRMP). '
-          'Текущий сервер: \$server. Фракция пользователя: \$org, звание: \$rank. '
+          'Текущий сервер: $server. Фракция пользователя: $org, звание: $rank. '
           'Опирайся на законы Нижегородской области, УК РФ, КоАП, ФЗ «О полиции», УПК и внутренние уставы. '
           'Отвечай чётко, структурированно, без лишней воды. Указывай конкретные статьи и порядок действий.';
 
@@ -105,13 +113,72 @@ class _ChatTabState extends ConsumerState<ChatTab> {
         _scrollToBottom();
       }
     } catch (e) {
+      // Fallback to offline knowledge base if API fails
+      final offlineReply = _getOfflineLawyerResponse(text, server, org, rank);
       if (mounted) {
         setState(() {
-          _error = e.toString();
+          _messages.add(_ChatMessage(
+            role: 'assistant',
+            content: '$offlineReply\n\n*(Ответ из оффлайн-базы. Ошибка онлайн-запроса DeepSeek: $e)*',
+          ));
           _loading = false;
         });
+        _scrollToBottom();
       }
     }
+  }
+
+  static String _getOfflineLawyerResponse(String query, String server, String org, String rank) {
+    final q = query.toLowerCase();
+    if (q.contains('неподчин') || q.contains('требован')) {
+      return '### ⚖️ Неповиновение законному распоряжению сотрудника\n\n'
+          '* **Статья:** ст. 19.3 КоАП РФ / ст. 39 УК РФ (в зависимости от тяжести).\n'
+          '* **Санкция:** Штраф от 10 000 до 30 000 руб. либо административный арест / объявление в розыск (2-3 уровень).\n'
+          '* **Порядок действий:**\n'
+          '  1. Трижды озвучить законное требование с предупреждением о применении спецсредств.\n'
+          '  2. Зафиксировать отказ на боди-камеру (`/do Включена боди-камера Дозор-3`).\n'
+          '  3. Произвести задержание с применением наручников (`/cuff`).';
+    }
+    if (q.contains('оружи') || q.contains('ст. 15') || q.contains('стрельб')) {
+      return '### 🔫 Применение огнестрельного оружия (ст. 15 ФЗ «О полиции»)\n\n'
+          '* **Основания:**\n'
+          '  1. Для защиты другого лица либо себя от посягательства, сопряженного с насилием, опасным для жизни.\n'
+          '  2. Для пресечения попытки завладения огнестрельным оружием, спецтехникой или служебным транспортом.\n'
+          '  3. Для задержания лица, совершающего тяжкое преступление и пытающегося скрыться вооруженным.\n'
+          '  4. Для остановки ТС путем повреждения (при создании угрозы жизни граждан).\n'
+          '* **Запрещено:** Применять против женщин с видимыми признаками беременности, лиц с явными признаками инвалидности и несовершеннолетних, кроме случаев вооруженного нападения.';
+    }
+    if (q.contains('обыск') || q.contains('досмотр')) {
+      return '### 🔍 Личный досмотр и обыск (УПК)\n\n'
+          '* **Основания без ордера:**\n'
+          '  1. Задержание лица на месте преступления или непосредственно после его совершения.\n'
+          '  2. Введение режима КТО, спецоперации или ЧС.\n'
+          '  3. Наличие явных следов преступления (оружие в руках, маска на лице, кровь).\n'
+          '* **Процедура:**\n'
+          '  1. Разъяснить права и причину досмотра.\n'
+          '  2. Привлечь двух понятых либо вести непрерывную видеофиксацию.\n'
+          '  3. Составить протокол досмотра (`/frisk {id}`).';
+    }
+    if (q.contains('миранд') || q.contains('прав')) {
+      return '### 📜 Правило Миранды (Права задержанного)\n\n'
+          '> *«Вы имеете право хранить молчание. Всё, что вы скажете, может и будет использовано против вас в суде. Вы имеете право на адвоката и один телефонный звонок. Если у вас нет средств на адвоката, он будет предоставлен государством. Вам ясны ваши права?»*\n\n'
+          '* Зачитывается сразу после надевания наручников и ограничения свободы.';
+    }
+    if (q.contains('допрос')) {
+      return '### 📋 Порядок проведения допроса (УПК)\n\n'
+          '* **Максимальная длительность:** не более 4 часов непрерывно (и не более 8 часов в сутки с перерывом на 1 час).\n'
+          '* **Обязательные действия:**\n'
+          '  1. Установить личность допрашиваемого по паспорту (`/pass`).\n'
+          '  2. Разъяснить право не свидетельствовать против себя и близких (ст. 51 Конституции РФ).\n'
+          '  3. Включить аудио/видеофиксацию.\n'
+          '  4. По окончании предоставить протокол для ознакомления и подписи.';
+    }
+    return '### ⚖️ Ответ юридической базы RP Assistant (Сервер: $server, $org)\n\n'
+        'Запрос: **$query**\n\n'
+        'Для получения детального юридического разбора с точными статьями подключите API-ключ DeepSeek в **Настройки -> DeepSeek ИИ**.\n\n'
+        '**Быстрые подсказки:**\n'
+        '* Для ареста используйте команду `/cuff`, затем зачитайте правило Миранды (вкладка «Шпаргалки» -> `Alt+1`).\n'
+        '* Доклады в рацию доступны во вкладке «Доклады».';
   }
 
   void _scrollToBottom() {

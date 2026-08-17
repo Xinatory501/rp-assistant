@@ -26,12 +26,12 @@ Start-Sleep -Milliseconds 60
 \$w.SendKeys('{ENTER}')
 """;
     final tmpDir = Directory.systemTemp;
-    final tmpFile = File(p.join(tmpDir.path, 'rp_send_\${DateTime.now().millisecondsSinceEpoch}_\${(1000 + (DateTime.now().microsecond % 9000))}.ps1'));
+    final tmpFile = File(p.join(tmpDir.path, 'rp_send_${DateTime.now().millisecondsSinceEpoch}_${(1000 + (DateTime.now().microsecond % 9000))}.ps1'));
     await tmpFile.writeAsString(script);
     try {
       await Process.run(
         'powershell',
-        ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', tmpFile.path],
+        ['-NoProfile', '-NonInteractive', '-WindowStyle', 'Hidden', '-ExecutionPolicy', 'Bypass', '-File', tmpFile.path],
       );
     } finally {
       try {

@@ -54,6 +54,14 @@ jobs:
         run: |
           & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" ./rp_assistant_flutter/windows/installer.iss
 
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: rp-assistant-build
+          path: |
+            RP-Assistant-Flutter-Portable.zip
+            RP-Assistant-Flutter-Setup.exe
+
       - name: Upload Release to GitHub
         uses: softprops/action-gh-release@v2
         with:
@@ -64,14 +72,16 @@ jobs:
           body: |
             ## 🚀 RP Assistant v1.1.0 — Flutter Edition
 
-            Официальная сборка RP Assistant на Flutter Windows Desktop.
+            Официальная стабильная сборка RP Assistant на Flutter Windows Desktop.
 
             ### Что нового:
-            - **Встроенные библиотеки VC++ Runtime** (запуск на любой Windows без установки дополнительных пакетов)
-            - **Новое меню Лаунчера:** авторизация / регистрация / ввод ключа KeyAuth
-            - **Детектор игры Amazing Online:** мониторинг процессов и запуск оверлея
-            - **Максимальная плавность (60+ FPS)** и размер установщика всего 10.5 MB
-            - **Глобальные хоткеи:** `Insert` и `Alt+X`
+            - **Исправлен краш окна при старте:** обновлена инициализация WindowManager и HotKeyManager (Virtual Key Code mapping).
+            - **Встроенные библиотеки VC++ Runtime** (запуск на любой Windows без установки дополнительных пакетов).
+            - **Новое меню Лаунчера:** авторизация / регистрация / ввод ключа KeyAuth.
+            - **Детектор игры Amazing Online:** мониторинг процессов и запуск оверлея.
+            - **Максимальная плавность (60+ FPS)** и размер установщика всего 11 MB.
+            - **Глобальные хоткеи:** `Insert` и `Alt+X`.
+            - **ИИ-Юрист и тренажер собеседований** со встроенной оффлайн-базой знаний.
 
             ### Файлы для загрузки:
             - **[RP-Assistant-Flutter-Setup.exe](https://github.com/Xinatory501/rp-assistant-releases/releases/download/v1.1.0-flutter/RP-Assistant-Flutter-Setup.exe)** — Инсталлятор
@@ -81,3 +91,4 @@ jobs:
             RP-Assistant-Flutter-Setup.exe
           draft: false
           prerelease: false
+
