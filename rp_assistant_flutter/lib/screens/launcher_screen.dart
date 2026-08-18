@@ -195,7 +195,7 @@ class _LauncherScreenState extends ConsumerState<LauncherScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
               child: Center(
                 child: ConstrainedBox(
-                  constraints: const ConstrainedBoxConstraints(maxWidth: 820),
+                  constraints: const BoxConstraints(maxWidth: 820),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
