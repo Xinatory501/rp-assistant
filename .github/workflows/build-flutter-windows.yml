@@ -29,7 +29,7 @@ jobs:
 
       - name: Build Windows Release
         working-directory: ./rp_assistant_flutter
-        run: flutter build windows --release
+        run: flutter build windows --release -v
 
       - name: Bundle VC++ Runtime DLLs
         run: |
