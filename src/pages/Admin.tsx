@@ -385,12 +385,12 @@ export default function AdminPage({ onBack }: { onBack: () => void }) {
     return map;
   }, [keys]);
 
-  // ─── 1. DISGUISED AUTHENTIC VERCEL 404 SCREEN ───
+  // ─── 1. DISGUISED AUTHENTIC VERCEL 404 SCREEN (1-TO-1 COPY OF https://amzrp.vercel.app/awd) ───
   if (!isAuthenticated) {
     return (
       <div
         onClick={handleDisguiseClick}
-        className="h-screen w-screen bg-[#000000] text-[#ffffff] flex items-center justify-center cursor-default select-none relative"
+        className="min-h-screen w-screen bg-white text-black flex flex-col justify-center cursor-default select-text relative"
         style={{
           fontFamily: 'sf pro text, sf pro icons, helvetica neue, helvetica, arial, sans-serif',
           fontSize: '1.6rem',
@@ -399,53 +399,60 @@ export default function AdminPage({ onBack }: { onBack: () => void }) {
           WebkitFontSmoothing: 'antialiased',
           MozOsxFontSmoothing: 'grayscale',
           textRendering: 'optimizeLegibility',
+          margin: 0,
         }}
       >
         <style>{`
-          ::selection {
-            background: #79ffe1 !important;
-            color: #000000 !important;
+          ::selection { background: #79ffe1 !important; }
+          ::-moz-selection { background: #79ffe1 !important; }
+          .devinfo-box {
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 2rem;
+            display: flex;
+            flex-direction: column;
+            margin-bottom: 32px;
+            background: #fff;
+          }
+          .devinfo-box code {
+            font-family: Menlo, Monaco, Lucida Console, Liberation Mono, DejaVu Sans Mono, Bitstream Vera Sans Mono, Courier New, monospace, serif;
+            font-size: .92em;
+            color: #000;
+          }
+          .devinfo-box code:before, .devinfo-box code:after {
+            content: '\`';
+          }
+          .note-box {
+            padding: 8pt 16pt;
+            border-radius: 5px;
+            border: 1px solid #0070f3;
+            font-size: 14px;
+            line-height: 1.8;
+            color: #0070f3;
+            text-decoration: none;
+            display: inline-block;
+          }
+          .note-box:hover {
+            border-bottom: 1px solid #0070f3;
           }
         `}</style>
 
-        {/* Authentic Vercel 404 Layout */}
-        <div className="flex items-center text-center select-text">
-          <h1
-            style={{
-              display: 'inline-block',
-              margin: '0 20px 0 0',
-              paddingRight: '23px',
-              fontSize: '24px',
-              fontWeight: 500,
-              verticalAlign: 'top',
-              lineHeight: '49px',
-              borderRight: '1px solid rgba(255, 255, 255, 0.3)',
-            }}
-          >
-            404
-          </h1>
-          <div
-            style={{
-              display: 'inline-block',
-              textAlign: 'left',
-              lineHeight: '49px',
-              height: '49px',
-              verticalAlign: 'middle',
-            }}
-          >
-            <h2
-              style={{
-                fontSize: '14px',
-                fontWeight: 'normal',
-                lineHeight: '49px',
-                margin: 0,
-                padding: 0,
-                color: '#ffffff',
-              }}
-            >
-              This page could not be found.
-            </h2>
+        <div style={{ maxWidth: '80rem', padding: '4rem 6rem', margin: 'auto', width: '100%' }}>
+          <div className="devinfo-box">
+            <span style={{ margin: '0 0 1.6rem 0', fontSize: '1.6rem', color: '#000' }}>
+              <strong>404</strong>: NOT_FOUND
+            </span>
+            <span style={{ color: '#333', marginBottom: '8px' }}>
+              Code: <code>NOT_FOUND</code>
+            </span>
+            <span style={{ color: '#333' }}>
+              ID: <code>fra1::f2dtw-1787061859867-475f807d5619</code>
+            </span>
           </div>
+
+          <a href="https://vercel.com/docs/errors/NOT_FOUND" target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
+            <div className="note-box">Read our documentation to learn more about this error.</div>
+          </a>
         </div>
 
         {/* Secret Hidden Terminal Modal (Activated strictly after 3 clicks) */}
