@@ -19,6 +19,7 @@ interface GeneratedKey {
 
 // SHA-256 hash of secret password (zero-knowledge: plain text password is never stored or visible in JS)
 const AUTH_DIGEST = '72444412cac88258a7cda188820f22042f4bb1b5d994197af425982f8d584468';
+const SECRET_SALT = 'AMAZING_RP_2026_SECURE_HMAC_SALT_KEYAUTH_XINATORY_9921';
 
 async function computeSha256(text: string): Promise<string> {
   const enc = new TextEncoder().encode(text);
@@ -26,6 +27,24 @@ async function computeSha256(text: string): Promise<string> {
   return Array.from(new Uint8Array(buf))
     .map(b => b.toString(16).padStart(2, '0'))
     .join('');
+}
+
+async function computeHmacSignature(payload: string, len: number = 4): Promise<string> {
+  const enc = new TextEncoder();
+  const keyData = enc.encode(SECRET_SALT);
+  const cryptoKey = await crypto.subtle.importKey(
+    'raw',
+    keyData,
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+  const signature = await crypto.subtle.sign('HMAC', cryptoKey, enc.encode(payload));
+  const hex = Array.from(new Uint8Array(signature))
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('')
+    .toUpperCase();
+  return hex.substring(0, len);
 }
 
 const TARIFF_NAMES: Record<string, string> = {
@@ -175,8 +194,8 @@ export default function AdminPage({ onBack }: { onBack: () => void }) {
     setInputPass('');
   };
 
-  // Generate keys
-  const generateKeys = () => {
+  // Generate keys with cryptographic HMAC-SHA256 signature
+  const generateKeys = async () => {
     const newKeys: GeneratedKey[] = [];
     const durTag = duration === 'lifetime' ? 'LIFE' : duration.toUpperCase();
     const now = Date.now();
@@ -184,8 +203,9 @@ export default function AdminPage({ onBack }: { onBack: () => void }) {
     for (let i = 0; i < count; i++) {
       const s1 = Math.random().toString(36).substring(2, 6).toUpperCase();
       const s2 = Math.random().toString(36).substring(2, 6).toUpperCase();
-      const s3 = Math.random().toString(36).substring(2, 6).toUpperCase();
-      const keyStr = `${prefix}-${durTag}-${s1}-${s2}-${s3}`;
+      const payload = `${prefix}-${durTag}-${s1}-${s2}`;
+      const sig = await computeHmacSignature(payload, 4);
+      const keyStr = `${payload}-${sig}`;
 
       newKeys.push({
         id: Math.random().toString(36).substring(2, 9),
@@ -201,7 +221,7 @@ export default function AdminPage({ onBack }: { onBack: () => void }) {
     setKeys(prev => [...newKeys, ...prev]);
     setLastBatch(newKeys);
     setBatchCopied(false);
-    setStatusMsg(`✓ Создано ${count} ключей (${TARIFF_NAMES[duration] || duration}). Вы можете сразу скопировать их.`);
+    setStatusMsg(`✓ Создано ${count} ключей (${TARIFF_NAMES[duration] || duration}). Ключи подписаны HMAC-SHA256 и готовы для активации в приложении!`);
     setTimeout(() => setStatusMsg(null), 4000);
   };
 
