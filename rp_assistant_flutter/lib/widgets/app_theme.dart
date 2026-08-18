@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 
 class AppColors {
   static const bg = Color(0xFF171615);
+  static const bgDark = Color(0xFF171615);
   static const bgCard = Color(0xFF201d1b);
   static const bgMid = Color(0xFF252220);
   static const border = Color(0xFF332e29);
   static const borderLight = Color(0x14FFFFFF);
   static const textPrimary = Color(0xFFede5dc);
+  static const textSecondary = Color(0xFF8e8579);
   static const textMuted = Color(0xFF8e8579);
   static const textDim = Color(0xFF5a544e);
   static const accent = Color(0xFFd97757);
