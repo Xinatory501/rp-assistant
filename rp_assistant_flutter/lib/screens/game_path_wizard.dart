@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
 import '../providers/app_store_provider.dart';
+import '../services/lua_injector_service.dart';
 import '../widgets/app_theme.dart';
 
 class GamePathWizard extends ConsumerStatefulWidget {
