@@ -16,6 +16,8 @@ import 'welcome_screen.dart';
 import 'auth_screen.dart';
 import 'launcher_screen.dart';
 import 'game_path_wizard.dart';
+import 'game_overlay_screen.dart';
+
 
 enum _Tab { binder, reports, interview, hints, chat, settings }
 
@@ -76,28 +78,35 @@ class _MainScreenState extends ConsumerState<MainScreen> with WindowListener {
   }
 
   Future<void> _handleLaunchOverlay() async {
-    final state = ref.read(appStoreProvider);
-    final notifier = ref.read(appStoreProvider.notifier);
+    // Configure window as always-on-top borderless overlay
+    try {
+      await windowManager.setAlwaysOnTop(true);
+      await windowManager.setSkipTaskbar(true);
+      await windowManager.setOpacity(0.94);
 
-    final gamePath = state.settings.gamePath.isNotEmpty
-        ? state.settings.gamePath
-        : state.settings.customGamePath;
+      // Try to position next to the game window
+      final bounds = await GameDetector.getGameWindowBounds();
+      if (bounds != null) {
+        final x = (bounds['left']! + bounds['width']! - 500).toDouble().clamp(0, 3000);
+        final y = (bounds['top']! + 20).toDouble();
+        await windowManager.setPosition(Offset(x, y));
+      }
+      await windowManager.setSize(const Size(490, 510));
+    } catch (_) {}
 
-    // 1. Inject Lua script into game (ONLY injection method)
-    if (state.activeProfile != null) {
-      await LuaInjectorService.inject(
-        profile: state.activeProfile!,
-        binds: state.binds,
-        hints: state.hints,
-        moonloaderDir: gamePath.isNotEmpty ? gamePath : null,
+    // Navigate to the new overlay UI
+    if (mounted) {
+      Navigator.of(context).push(
+        PageRouteBuilder(
+          pageBuilder: (_, __, ___) => const GameOverlayScreen(),
+          transitionDuration: const Duration(milliseconds: 200),
+          transitionsBuilder: (_, anim, __, child) =>
+              FadeTransition(opacity: anim, child: child),
+        ),
       );
     }
-
-    // 2. Attach overlay window above game
-    notifier.updateSettings(state.settings.copyWith(isOverlayMode: true));
-    await _attachOverlayToGame();
-    _startGameWatcher();
   }
+
 
   Future<void> _attachOverlayToGame() async {
     try {
