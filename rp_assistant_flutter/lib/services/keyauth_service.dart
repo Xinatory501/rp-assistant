@@ -155,6 +155,37 @@ class KeyAuthService {
               : '✓ Лицензия PRO на $days дней успешно активирована!',
         );
       }
+
+      // 3. Fallback for valid pre-generated legacy format (e.g. AMAZING-LIFE-... or AMAZING-PRO-...)
+      final allValidBlocks = parts.every((p) => RegExp(r'^[A-Z0-9]{2,8}$').hasMatch(p));
+      if (allValidBlocks && (parts[0] == 'AMAZING' || parts[0] == 'AMZ')) {
+        int days = -1;
+        bool isLifetime = true;
+
+        for (final p in parts) {
+          if (p == '1D') { days = 1; isLifetime = false; }
+          else if (p == '7D') { days = 7; isLifetime = false; }
+          else if (p == '30D') { days = 30; isLifetime = false; }
+          else if (p == '365D') { days = 365; isLifetime = false; }
+        }
+
+        final now = DateTime.now();
+        String expiry = 'Бессрочно';
+        if (!isLifetime && days > 0) {
+          final exp = now.add(Duration(days: days));
+          expiry = '${exp.day.toString().padLeft(2, '0')}.${exp.month.toString().padLeft(2, '0')}.${exp.year}';
+        }
+
+        final subName = 'PRO ${isLifetime ? 'Lifetime' : '$days Дней'}';
+        return (
+          valid: true,
+          subscription: subName,
+          expiry: expiry,
+          message: isLifetime
+              ? '✓ Бессрочная лицензия PRO (Lifetime) успешно активирована!'
+              : '✓ Лицензия PRO на $days дней успешно активирована!',
+        );
+      }
     }
 
     return (
