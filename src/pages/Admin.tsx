@@ -390,24 +390,19 @@ export default function AdminPage({ onBack }: { onBack: () => void }) {
     return (
       <div
         onClick={handleDisguiseClick}
-        className="h-screen w-screen bg-[#000000] text-[#ffffff] font-sans flex items-center justify-center cursor-default select-none relative"
-        style={{ fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif' }}
+        className="min-h-screen w-screen bg-[#000000] text-[#ffffff] p-4 cursor-default select-text relative font-mono text-[13px] leading-relaxed"
+        style={{
+          fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
+          whiteSpace: 'pre-wrap'
+        }}
       >
-        {/* Authentic Vercel 404 Layout */}
-        <div className="flex items-center text-center">
-          <h1 className="text-2xl font-medium border-r border-[#333333] pr-6 mr-6 leading-none">
-            404
-          </h1>
-          <div className="text-sm font-normal text-[#888888] tracking-normal">
-            This page could not be found.
-          </div>
-        </div>
+        {`The page could not be found\n\nNOT_FOUND\n\nfra1::zstxw-1787061266744-dc03170aee91`}
 
         {/* Secret Hidden Terminal Modal (Activated strictly after 3 clicks) */}
         {showPrompt && (
           <div
             onClick={e => e.stopPropagation()}
-            className="absolute inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-in fade-in duration-200"
+            className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-in fade-in duration-200"
           >
             <div className="w-full max-w-sm bg-[#111111] border border-[#262626] rounded-2xl p-6 shadow-2xl space-y-4 text-left font-mono">
               <div className="flex items-center justify-between border-b border-[#222222] pb-3 text-xs text-[#888888]">
