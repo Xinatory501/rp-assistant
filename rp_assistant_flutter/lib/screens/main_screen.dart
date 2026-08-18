@@ -87,7 +87,7 @@ class _MainScreenState extends ConsumerState<MainScreen> with WindowListener {
       // Try to position next to the game window
       final bounds = await GameDetector.getGameWindowBounds();
       if (bounds != null) {
-        final x = (bounds['left']! + bounds['width']! - 500).toDouble().clamp(0, 3000);
+        final x = (bounds['left']! + bounds['width']! - 500).toDouble().clamp(0.0, 3000.0).toDouble();
         final y = (bounds['top']! + 20).toDouble();
         await windowManager.setPosition(Offset(x, y));
       }

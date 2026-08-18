@@ -1,6 +1,165 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:window_manager/window_manager.dart';
 import 'app_theme.dart';
+
+class ClaudeTitleBar extends StatelessWidget {
+  final String title;
+  final String? subtitle;
+  final Widget? trailing;
+  final bool showControls;
+
+  const ClaudeTitleBar({
+    super.key,
+    this.title = 'RP Assistant',
+    this.subtitle,
+    this.trailing,
+    this.showControls = true,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onPanStart: (_) => windowManager.startDragging(),
+      onDoubleTap: () async {
+        if (await windowManager.isMaximized()) {
+          await windowManager.unmaximize();
+        } else {
+          await windowManager.maximize();
+        }
+      },
+      child: Container(
+        height: 40,
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        decoration: const BoxDecoration(
+          color: AppColors.titlebarBg,
+          border: Border(bottom: BorderSide(color: AppColors.border)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 20,
+              height: 20,
+              decoration: BoxDecoration(
+                color: AppColors.accent.withOpacity(0.18),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: AppColors.accent.withOpacity(0.4)),
+              ),
+              child: const Center(
+                child: Icon(Icons.auto_awesome, size: 11, color: AppColors.accent),
+              ),
+            ),
+            const SizedBox(width: 9),
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textPrimary,
+                letterSpacing: 0.3,
+              ),
+            ),
+            if (subtitle != null) ...[
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                decoration: BoxDecoration(
+                  color: AppColors.bgMid,
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(color: AppColors.borderLight),
+                ),
+                child: Text(
+                  subtitle!,
+                  style: const TextStyle(fontSize: 9.5, color: AppColors.textMuted),
+                ),
+              ),
+            ],
+            const Spacer(),
+            if (trailing != null) ...[
+              trailing!,
+              const SizedBox(width: 8),
+            ],
+            if (showControls) ...[
+              _WindowButton(
+                icon: Icons.remove,
+                tooltip: 'Свернуть',
+                onPressed: () => windowManager.minimize(),
+              ),
+              _WindowButton(
+                icon: Icons.crop_square,
+                tooltip: 'Развернуть',
+                onPressed: () async {
+                  if (await windowManager.isMaximized()) {
+                    await windowManager.unmaximize();
+                  } else {
+                    await windowManager.maximize();
+                  }
+                },
+              ),
+              _WindowButton(
+                icon: Icons.close,
+                tooltip: 'Закрыть',
+                isClose: true,
+                onPressed: () => windowManager.close(),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _WindowButton extends StatefulWidget {
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback onPressed;
+  final bool isClose;
+
+  const _WindowButton({
+    required this.icon,
+    required this.tooltip,
+    required this.onPressed,
+    this.isClose = false,
+  });
+
+  @override
+  State<_WindowButton> createState() => _WindowButtonState();
+}
+
+class _WindowButtonState extends State<_WindowButton> {
+  bool _hover = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hover = true),
+      onExit: (_) => setState(() => _hover = false),
+      child: GestureDetector(
+        onTap: widget.onPressed,
+        child: Container(
+          width: 32,
+          height: 26,
+          decoration: BoxDecoration(
+            color: _hover
+                ? (widget.isClose ? const Color(0xFFDC2626) : const Color(0x18FFFFFF))
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Center(
+            child: Icon(
+              widget.icon,
+              size: 13,
+              color: _hover
+                  ? Colors.white
+                  : (widget.isClose ? AppColors.textMuted : AppColors.textSecondary),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
 
 class RpButton extends StatelessWidget {
   final String label;
@@ -28,8 +187,8 @@ class RpButton extends StatelessWidget {
         child: OutlinedButton(
           onPressed: onPressed,
           style: OutlinedButton.styleFrom(
-            foregroundColor: AppColors.textMuted,
-            side: const BorderSide(color: AppColors.borderLight),
+            foregroundColor: AppColors.textPrimary,
+            side: const BorderSide(color: AppColors.border),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             textStyle: TextStyle(fontSize: fs),
             padding: const EdgeInsets.symmetric(horizontal: 10),
@@ -37,7 +196,7 @@ class RpButton extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              if (icon != null) ...[Icon(icon, size: 12), const SizedBox(width: 4)],
+              if (icon != null) ...[Icon(icon, size: 12, color: AppColors.accent), const SizedBox(width: 5)],
               Text(label),
             ],
           ),
@@ -49,13 +208,16 @@ class RpButton extends StatelessWidget {
       child: ElevatedButton(
         onPressed: onPressed,
         style: ElevatedButton.styleFrom(
-          padding: const EdgeInsets.symmetric(horizontal: 10),
+          backgroundColor: AppColors.accent,
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           textStyle: TextStyle(fontSize: fs, fontWeight: FontWeight.w600),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (icon != null) ...[Icon(icon, size: 12), const SizedBox(width: 4)],
+            if (icon != null) ...[Icon(icon, size: 12), const SizedBox(width: 5)],
             Text(label),
           ],
         ),
@@ -75,11 +237,11 @@ class RpCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: padding ?? const EdgeInsets.all(10),
+      padding: padding ?? const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: color ?? AppColors.bgCard,
         borderRadius: BorderRadius.circular(10),
-        border: border ?? Border.all(color: AppColors.borderLight),
+        border: border ?? Border.all(color: AppColors.border),
       ),
       child: child,
     );
@@ -165,12 +327,12 @@ class SectionHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(0, 8, 0, 4),
+      padding: const EdgeInsets.fromLTRB(0, 4, 0, 4),
       child: Text(
         title.toUpperCase(),
         style: const TextStyle(
           color: AppColors.textDim,
-          fontSize: 10,
+          fontSize: 9.5,
           fontWeight: FontWeight.w700,
           letterSpacing: 0.8,
         ),
