@@ -12,36 +12,103 @@ import '../models/profile.dart';
 class LuaInjectorService {
   // ─── Candidate MoonLoader paths ───────────────────────────────────────────
   static const List<String> _moonloaderPaths = [
+    r'C:\Amazing Games\Amazing Online\moonloader',
+    r'C:\Amazing Games\moonloader',
     r'C:\Games\Amazing Games\moonloader',
-    r'D:\Games\Amazing Games\moonloader',
+    r'C:\Games\Amazing Online\moonloader',
     r'C:\Amazing Online\moonloader',
+    r'D:\Amazing Games\Amazing Online\moonloader',
+    r'D:\Amazing Games\moonloader',
+    r'D:\Games\Amazing Games\moonloader',
+    r'D:\Games\Amazing Online\moonloader',
     r'D:\Amazing Online\moonloader',
-    r'C:\GTA San Andreas\moonloader',
-    r'D:\GTA San Andreas\moonloader',
+    r'E:\Amazing Games\Amazing Online\moonloader',
+    r'E:\Amazing Games\moonloader',
+    r'E:\Games\Amazing Games\moonloader',
+    r'E:\Games\Amazing Online\moonloader',
+    r'E:\Amazing Online\moonloader',
     r'C:\Program Files (x86)\Amazing Games\moonloader',
     r'C:\Program Files\Amazing Games\moonloader',
+    r'C:\GTA San Andreas\moonloader',
+    r'D:\GTA San Andreas\moonloader',
+    r'C:\Games\GTA San Andreas\moonloader',
+    r'D:\Games\GTA San Andreas\moonloader',
   ];
 
   static const List<String> _gtaRootPaths = [
+    r'C:\Amazing Games\Amazing Online',
+    r'C:\Amazing Games',
     r'C:\Games\Amazing Games',
-    r'D:\Games\Amazing Games',
+    r'C:\Games\Amazing Online',
     r'C:\Amazing Online',
+    r'D:\Amazing Games\Amazing Online',
+    r'D:\Amazing Games',
+    r'D:\Games\Amazing Games',
+    r'D:\Games\Amazing Online',
     r'D:\Amazing Online',
-    r'C:\GTA San Andreas',
-    r'D:\GTA San Andreas',
+    r'E:\Amazing Games\Amazing Online',
+    r'E:\Amazing Games',
+    r'E:\Games\Amazing Games',
+    r'E:\Games\Amazing Online',
+    r'E:\Amazing Online',
     r'C:\Program Files (x86)\Amazing Games',
     r'C:\Program Files\Amazing Games',
+    r'C:\GTA San Andreas',
+    r'D:\GTA San Andreas',
+    r'C:\Games\GTA San Andreas',
+    r'D:\Games\GTA San Andreas',
   ];
 
-  // ─── Find MoonLoader folder ─────────────────────────────────────────────
+  // ─── Find MoonLoader folder with auto-creation ─────────────────────────
   static Future<String?> findMoonloaderDir([String? customPath]) async {
-    if (customPath != null && customPath.isNotEmpty) {
-      final d = Directory(customPath);
-      if (await d.exists()) return customPath;
+    // 1. If explicit custom path provided
+    if (customPath != null && customPath.trim().isNotEmpty) {
+      final clean = customPath.trim();
+      final dir = Directory(clean);
+
+      // Case A: Path is already the moonloader folder
+      if (clean.toLowerCase().endsWith('moonloader')) {
+        if (!await dir.exists()) {
+          try {
+            await dir.create(recursive: true);
+          } catch (_) {}
+        }
+        if (await dir.exists()) return dir.path;
+      }
+
+      // Case B: Path has a moonloader subfolder
+      final subMoon = Directory('$clean\\moonloader');
+      if (await subMoon.exists()) {
+        return subMoon.path;
+      }
+
+      // Case C: Path is a valid directory -> create moonloader inside!
+      if (await dir.exists()) {
+        try {
+          await subMoon.create(recursive: true);
+          return subMoon.path;
+        } catch (_) {}
+      }
     }
+
+    // 2. Check candidate moonloader directories
     for (final p in _moonloaderPaths) {
-      if (await Directory(p).exists()) return p;
+      final d = Directory(p);
+      if (await d.exists()) return p;
     }
+
+    // 3. Check candidate game root directories and create moonloader inside
+    for (final root in _gtaRootPaths) {
+      final rd = Directory(root);
+      if (await rd.exists()) {
+        final md = Directory('$root\\moonloader');
+        try {
+          if (!await md.exists()) await md.create(recursive: true);
+          return md.path;
+        } catch (_) {}
+      }
+    }
+
     return null;
   }
 
@@ -118,10 +185,7 @@ class LuaInjectorService {
     if (dir == null) {
       return InjectionResult(
         success: false,
-        message: 'MoonLoader не найден. Укажите путь к папке игры в Настройках.\n'
-            'Стандартные пути:\n'
-            '  C:\\Games\\Amazing Games\\moonloader\n'
-            '  C:\\Amazing Online\\moonloader',
+        message: 'Папка с игрой не найдена. Пожалуйста, укажите папку Amazing Online в Настройках (раздел «Игра & Lua»).',
       );
     }
 
@@ -133,15 +197,16 @@ class LuaInjectorService {
     if (configOk && luaOk) {
       return InjectionResult(
         success: true,
-        message: '✅ Lua-скрипт установлен!\n'
-            'Путь: $dir\\scripts\\rp_assistant.lua\n'
-            'Нажмите INSERT в игре для открытия меню.',
+        message: '✅ Lua-скрипт успешно установлен!\n'
+            '📁 Путь: $dir\\scripts\\rp_assistant.lua\n'
+            '🎮 Горячие клавиши в игре: [INSERT] или [F2] или [Alt+M] или [F10]\n'
+            '💬 Команда в чат игры: /rp или /menu',
         path: dir,
       );
     }
     return InjectionResult(
       success: false,
-      message: 'Ошибка записи файлов. Нет доступа к: $dir',
+      message: 'Ошибка записи файлов в $dir. Проверьте права доступа.',
     );
   }
 
@@ -153,7 +218,7 @@ class LuaInjectorService {
 
 script_name("RP Assistant")
 script_description("Помощник RP игрока для Amazing Online")
-script_version("1.1")
+script_version("1.2")
 script_author("RP Assistant")
 
 require "lib.moonloader"
@@ -195,24 +260,41 @@ local active_tab     = 1
 local bind_filter    = imgui.ImBuffer(128)
 local hint_search    = imgui.ImBuffer(128)
 
--- ─── Hotkey: INSERT → toggle menu ───────────────────────────────────────
+-- ─── Переключение меню ───────────────────────────────────────────────────
+local function toggle_menu()
+  show_window.v = not show_window.v
+  if show_window.v then
+    load_config()
+  end
+end
+
+-- ─── Hotkeys: INSERT / F2 / Alt+M / F10 / Команды в чат ──────────────────
 function main()
   while not isSampAvailable() do wait(100) end
 
-  -- Стартовое уведомление
+  -- Регистрация команд в игровой чат
+  sampRegisterChatCommand("rp", toggle_menu)
+  sampRegisterChatCommand("menu", toggle_menu)
+  sampRegisterChatCommand("assistant", toggle_menu)
+
+  -- Стартовое уведомление в чат игры
   wait(2000)
-  sampAddChatMessage("{00BFFF}[RP Assistant] {FFFFFF}Бот-помощник загружен! Нажмите {00FF00}INSERT{FFFFFF} для открытия меню.", -1)
+  sampAddChatMessage("{00BFFF}[RP Assistant] {FFFFFF}Бот-помощник загружен! Меню: {00FF00}INSERT{FFFFFF} / {00FF00}F2{FFFFFF} / {00FF00}Alt+M{FFFFFF} или {00FF00}/rp{FFFFFF} в чат.", -1)
 
   while true do
     wait(0)
 
-    -- Toggle menu on INSERT
-    if wasKeyPressed(VK_INSERT) then
-      show_window.v = not show_window.v
-      -- Reload config every time menu opens
-      if show_window.v then
-        load_config()
-      end
+    -- 1. Клавиша INSERT (VK_INSERT = 0x2D)
+    -- 2. Клавиша F2 (VK_F2 = 0x71)
+    -- 3. Комбинация Alt + M (0x12 + 0x4D)
+    -- 4. Клавиша F10 (VK_F10 = 0x79)
+    local isAltM = isKeyDown(0x12) and wasKeyPressed(0x4D)
+    local isInsert = wasKeyPressed(0x2D)
+    local isF2 = wasKeyPressed(0x71)
+    local isF10 = wasKeyPressed(0x79)
+
+    if isInsert or isF2 or isAltM or isF10 then
+      toggle_menu()
     end
 
     imgui.Process = show_window.v
@@ -362,7 +444,7 @@ function imgui.OnDrawFrame()
     -- Footer
     imgui.Separator()
     imgui.TextColored(imgui.ImVec4(0.5, 0.5, 0.5, 1),
-      e("INSERT — открыть/закрыть | RP Assistant v1.1"))
+      e("Клавиши: INSERT / F2 / Alt+M / F10 | Команда: /rp | RP Assistant v1.2"))
 
   end
   imgui.End()

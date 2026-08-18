@@ -12,8 +12,8 @@ class AppColors {
   static const accent = Color(0xFFd97757);
   static const accentDark = Color(0xFF33241b);
   static const accentBorder = Color(0xFF523828);
-  static const titlebarBg = Color(0x59000000);
-  static const tabbarBg = Color(0x33000000);
+  static const titlebarBg = Color(0xFF201d1b);
+  static const tabbarBg = Color(0xFF171615);
 }
 
 ThemeData buildAppTheme() {

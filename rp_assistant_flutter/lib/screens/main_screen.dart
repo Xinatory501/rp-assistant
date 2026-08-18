@@ -79,15 +79,17 @@ class _MainScreenState extends ConsumerState<MainScreen> with WindowListener {
     final state = ref.read(appStoreProvider);
     final notifier = ref.read(appStoreProvider.notifier);
 
+    final gamePath = state.settings.gamePath.isNotEmpty
+        ? state.settings.gamePath
+        : state.settings.customGamePath;
+
     // 1. Inject Lua script into game (ONLY injection method)
     if (state.activeProfile != null) {
       await LuaInjectorService.inject(
         profile: state.activeProfile!,
         binds: state.binds,
         hints: state.hints,
-        moonloaderDir: state.settings.gamePath.isNotEmpty
-            ? '${state.settings.gamePath}\\moonloader'
-            : null,
+        moonloaderDir: gamePath.isNotEmpty ? gamePath : null,
       );
     }
 
@@ -196,8 +198,8 @@ class _MainScreenState extends ConsumerState<MainScreen> with WindowListener {
                       height: 38,
                       padding: const EdgeInsets.symmetric(horizontal: 10),
                       decoration: const BoxDecoration(
-                        color: AppColors.titlebarBg,
-                        border: Border(bottom: BorderSide(color: AppColors.borderLight)),
+                        color: AppColors.bgCard,
+                        border: Border(bottom: BorderSide(color: AppColors.border)),
                       ),
                       child: Row(
                         children: [
@@ -323,22 +325,6 @@ class _MainScreenState extends ConsumerState<MainScreen> with WindowListener {
                             padding: EdgeInsets.zero,
                             constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
                             tooltip: 'Вернуться в меню лаунчера',
-                          ),
-                          const SizedBox(width: 2),
-                          // Window Actions
-                          IconButton(
-                            icon: const Icon(Icons.remove, size: 13, color: AppColors.textMuted),
-                            onPressed: () => windowManager.minimize(),
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
-                            tooltip: 'Свернуть',
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.close, size: 13, color: AppColors.textMuted),
-                            onPressed: () => windowManager.hide(),
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
-                            tooltip: 'Скрыть (Insert)',
                           ),
                         ],
                       ),

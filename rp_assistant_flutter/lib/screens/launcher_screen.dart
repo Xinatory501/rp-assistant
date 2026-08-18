@@ -100,7 +100,7 @@ class _LauncherScreenState extends ConsumerState<LauncherScreen> {
       profile: profile,
       binds: state.binds,
       hints: state.hints,
-      moonloaderDir: gamePath.isNotEmpty ? '$gamePath\\moonloader' : null,
+      moonloaderDir: gamePath.isNotEmpty ? gamePath : null,
     );
 
     if (mounted) {
@@ -216,8 +216,8 @@ class _LauncherScreenState extends ConsumerState<LauncherScreen> {
                   height: 48,
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   decoration: const BoxDecoration(
-                    color: AppColors.titlebarBg,
-                    border: Border(bottom: BorderSide(color: AppColors.borderLight)),
+                    color: AppColors.bgCard,
+                    border: Border(bottom: BorderSide(color: AppColors.border)),
                   ),
                   child: Row(
                     children: [
@@ -270,16 +270,6 @@ class _LauncherScreenState extends ConsumerState<LauncherScreen> {
                             icon: const Icon(Icons.logout, size: 15, color: AppColors.textDim),
                             tooltip: 'Сменить аккаунт / Выйти',
                             onPressed: _logout,
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.remove, size: 16, color: AppColors.textMuted),
-                            tooltip: 'Свернуть',
-                            onPressed: () => windowManager.minimize(),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.close, size: 16, color: AppColors.textMuted),
-                            tooltip: 'Закрыть',
-                            onPressed: () => windowManager.close(),
                           ),
                         ],
                       ),
@@ -651,11 +641,11 @@ class _LauncherScreenState extends ConsumerState<LauncherScreen> {
                                       ],
                                     ),
                                   ),
-                                  const SizedBox(height: 10),
-                                  _hotkeyRow('Скрыть / Показать', 'Insert'),
-                                  _hotkeyRow('Экстренное скрытие', 'Alt + X'),
-                                  _hotkeyRow('Авто-ввод в чат', 'F6 (PowerShell)'),
-                                  const Divider(color: AppColors.borderLight, height: 16),
+                                   const SizedBox(height: 10),
+                                   _hotkeyRow('Меню в игре', 'Insert / F2 / Alt+M'),
+                                   _hotkeyRow('Команда в чат', '/rp или /menu'),
+                                   _hotkeyRow('Оверлей Windows', 'Insert / Alt+X'),
+                                   const Divider(color: AppColors.borderLight, height: 16),
                                   const Row(
                                     children: [
                                       Icon(Icons.check_circle, size: 13, color: Color(0xFF22C55E)),
@@ -781,7 +771,7 @@ class _LauncherScreenState extends ConsumerState<LauncherScreen> {
                             ),
                             const SizedBox(height: 4),
                             const Text(
-                              'Устанавливает rp_assistant.lua в папку moonloader\\scripts\\ игры.\nМеню открывается клавишей INSERT прямо внутри Amazing Online.',
+                              'Устанавливает rp_assistant.lua в папку moonloader\\scripts\\ игры.\nМеню открывается: [INSERT] / [F2] / [Alt+M] / [F10] или командой /rp в чат.',
                               style: TextStyle(fontSize: 10, color: AppColors.textDim, height: 1.3),
                             ),
                             if (_injectResult != null) ...{

@@ -20,16 +20,27 @@ class _GamePathWizardState extends ConsumerState<GamePathWizard> {
   String _status = '';
 
   static const _candidatePaths = [
+    r'C:\Amazing Games\Amazing Online',
+    r'C:\Amazing Games',
     r'C:\Games\Amazing Games',
-    r'D:\Games\Amazing Games',
+    r'C:\Games\Amazing Online',
     r'C:\Amazing Online',
+    r'D:\Amazing Games\Amazing Online',
+    r'D:\Amazing Games',
+    r'D:\Games\Amazing Games',
+    r'D:\Games\Amazing Online',
     r'D:\Amazing Online',
-    r'C:\GTA San Andreas',
-    r'D:\GTA San Andreas',
+    r'E:\Amazing Games\Amazing Online',
+    r'E:\Amazing Games',
+    r'E:\Games\Amazing Games',
+    r'E:\Games\Amazing Online',
+    r'E:\Amazing Online',
     r'C:\Program Files (x86)\Amazing Games',
     r'C:\Program Files\Amazing Games',
-    r'E:\Games\Amazing Games',
-    r'E:\Amazing Online',
+    r'C:\GTA San Andreas',
+    r'D:\GTA San Andreas',
+    r'C:\Games\GTA San Andreas',
+    r'D:\Games\GTA San Andreas',
   ];
 
   @override
@@ -69,14 +80,25 @@ class _GamePathWizardState extends ConsumerState<GamePathWizard> {
     }
   }
 
-  void _save(String path) {
+  Future<void> _save(String path) async {
     final notifier = ref.read(appStoreProvider.notifier);
-    final settings = ref.read(appStoreProvider).settings;
-    notifier.updateSettings(settings.copyWith(
+    final state = ref.read(appStoreProvider);
+    notifier.updateSettings(state.settings.copyWith(
       gamePath: path,
       customGamePath: path,
       gamePathConfigured: true,
     ));
+
+    // Pre-install Lua script and config in game folder
+    if (state.activeProfile != null) {
+      await LuaInjectorService.inject(
+        profile: state.activeProfile!,
+        binds: state.binds,
+        hints: state.hints,
+        moonloaderDir: path,
+      );
+    }
+
     widget.onDone();
   }
 

@@ -1075,7 +1075,7 @@ class _GameSectionState extends State<_GameSection> {
       profile: profile,
       binds: widget.state.binds,
       hints: widget.state.hints,
-      moonloaderDir: targetPath.isNotEmpty ? '$targetPath\\moonloader' : null,
+      moonloaderDir: targetPath.isNotEmpty ? targetPath : null,
     );
 
     if (mounted) {
@@ -1165,9 +1165,10 @@ class _GameSectionState extends State<_GameSection> {
               ),
               const SizedBox(height: 6),
               const Text(
-                '• Меню открывается клавишей INSERT прямо в игре\n'
-                '• Доступны вкладки: Биндер, УК/КоАП, Термины, Шпаргалки, Миранда\n'
-                '• Конфиг автоматически обновляется из профилей и биндов приложения',
+                '• Горячие клавиши в игре: [INSERT] / [F2] / [Alt+M] / [F10]\n'
+                '• Команда в игровой чат: /rp или /menu\n'
+                '• Вкладки: Биндер, УК/КоАП, Термины, Шпаргалки, Миранда\n'
+                '• Конфиг автоматически синхронизируется с профилем персонажа',
                 style: TextStyle(fontSize: 10.5, color: AppColors.textMuted, height: 1.4),
               ),
               const SizedBox(height: 10),
