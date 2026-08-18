@@ -390,13 +390,63 @@ export default function AdminPage({ onBack }: { onBack: () => void }) {
     return (
       <div
         onClick={handleDisguiseClick}
-        className="min-h-screen w-screen bg-[#000000] text-[#ffffff] p-4 cursor-default select-text relative font-mono text-[13px] leading-relaxed"
+        className="h-screen w-screen bg-[#000000] text-[#ffffff] flex items-center justify-center cursor-default select-none relative"
         style={{
-          fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
-          whiteSpace: 'pre-wrap'
+          fontFamily: 'sf pro text, sf pro icons, helvetica neue, helvetica, arial, sans-serif',
+          fontSize: '1.6rem',
+          lineHeight: '1.65',
+          wordBreak: 'break-word',
+          WebkitFontSmoothing: 'antialiased',
+          MozOsxFontSmoothing: 'grayscale',
+          textRendering: 'optimizeLegibility',
         }}
       >
-        {`The page could not be found\n\nNOT_FOUND\n\nfra1::zstxw-1787061266744-dc03170aee91`}
+        <style>{`
+          ::selection {
+            background: #79ffe1 !important;
+            color: #000000 !important;
+          }
+        `}</style>
+
+        {/* Authentic Vercel 404 Layout */}
+        <div className="flex items-center text-center select-text">
+          <h1
+            style={{
+              display: 'inline-block',
+              margin: '0 20px 0 0',
+              paddingRight: '23px',
+              fontSize: '24px',
+              fontWeight: 500,
+              verticalAlign: 'top',
+              lineHeight: '49px',
+              borderRight: '1px solid rgba(255, 255, 255, 0.3)',
+            }}
+          >
+            404
+          </h1>
+          <div
+            style={{
+              display: 'inline-block',
+              textAlign: 'left',
+              lineHeight: '49px',
+              height: '49px',
+              verticalAlign: 'middle',
+            }}
+          >
+            <h2
+              style={{
+                fontSize: '14px',
+                fontWeight: 'normal',
+                lineHeight: '49px',
+                margin: 0,
+                padding: 0,
+                color: '#ffffff',
+              }}
+            >
+              This page could not be found.
+            </h2>
+          </div>
+        </div>
 
         {/* Secret Hidden Terminal Modal (Activated strictly after 3 clicks) */}
         {showPrompt && (
