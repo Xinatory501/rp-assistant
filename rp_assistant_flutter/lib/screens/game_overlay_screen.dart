@@ -1,7 +1,9 @@
 ﻿import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:window_manager/window_manager.dart';
 import '../providers/app_store_provider.dart';
+import '../models/profile.dart';
 import '../widgets/app_theme.dart';
 
 /// Game overlay window — always-on-top transparent floating panel.
@@ -36,18 +38,20 @@ class _GameOverlayScreenState extends ConsumerState<GameOverlayScreen>
   }
 
   Future<void> _closeOverlay() async {
-    await windowManager.setSize(const Size(440, 680));
-    await windowManager.center();
-    await windowManager.setAlwaysOnTop(false);
-    await windowManager.setSkipTaskbar(false);
-    await windowManager.setOpacity(1.0);
+    try {
+      await windowManager.setSize(const Size(440, 680));
+      await windowManager.center();
+      await windowManager.setAlwaysOnTop(false);
+      await windowManager.setSkipTaskbar(false);
+      await windowManager.setOpacity(1.0);
+    } catch (_) {}
     if (mounted) Navigator.of(context).pop();
   }
 
   @override
   Widget build(BuildContext context) {
     final store = ref.watch(appStoreProvider);
-    final profile = store.profile;
+    final profile = store.activeProfile;
     final binds = store.binds;
     final hints = store.hints;
 
@@ -73,7 +77,7 @@ class _GameOverlayScreenState extends ConsumerState<GameOverlayScreen>
     );
   }
 
-  Widget _buildCollapsed(dynamic profile) {
+  Widget _buildCollapsed(Profile? profile) {
     return SizedBox(
       height: 48,
       child: Row(
@@ -96,7 +100,7 @@ class _GameOverlayScreenState extends ConsumerState<GameOverlayScreen>
     );
   }
 
-  Widget _buildExpanded(dynamic profile, List<dynamic> binds, List<dynamic> hints) {
+  Widget _buildExpanded(Profile? profile, List<Bind> binds, List<Hint> hints) {
     return SizedBox(
       width: 480,
       child: Column(
@@ -111,7 +115,7 @@ class _GameOverlayScreenState extends ConsumerState<GameOverlayScreen>
     );
   }
 
-  Widget _buildHeader(dynamic profile) {
+  Widget _buildHeader(Profile? profile) {
     return Container(
       height: 44,
       padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -199,7 +203,7 @@ class _GameOverlayScreenState extends ConsumerState<GameOverlayScreen>
     );
   }
 
-  Widget _buildTabContent(List<dynamic> binds, List<dynamic> hints, dynamic profile) {
+  Widget _buildTabContent(List<Bind> binds, List<Hint> hints, Profile? profile) {
     switch (_tab) {
       case 0: return _buildBinderTab(binds, profile);
       case 1: return _buildLawsTab();
@@ -210,9 +214,9 @@ class _GameOverlayScreenState extends ConsumerState<GameOverlayScreen>
     }
   }
 
-  Widget _buildBinderTab(List<dynamic> binds, dynamic profile) {
+  Widget _buildBinderTab(List<Bind> binds, Profile? profile) {
     final filtered = binds.where((b) =>
-      _bindFilter.isEmpty || (b.title as String).toLowerCase().contains(_bindFilter.toLowerCase())
+      _bindFilter.isEmpty || b.title.toLowerCase().contains(_bindFilter.toLowerCase())
     ).toList();
     return Column(children: [
       Padding(
@@ -320,9 +324,9 @@ class _GameOverlayScreenState extends ConsumerState<GameOverlayScreen>
     );
   }
 
-  Widget _buildHintsTab(List<dynamic> hints) {
+  Widget _buildHintsTab(List<Hint> hints) {
     final filtered = hints.where((h) =>
-      _hintFilter.isEmpty || (h.title as String).toLowerCase().contains(_hintFilter.toLowerCase())
+      _hintFilter.isEmpty || h.title.toLowerCase().contains(_hintFilter.toLowerCase())
     ).toList();
     return Column(children: [
       Padding(
@@ -448,8 +452,8 @@ class _GameOverlayScreenState extends ConsumerState<GameOverlayScreen>
 }
 
 class _BindCard extends StatelessWidget {
-  final dynamic bind;
-  final dynamic profile;
+  final Bind bind;
+  final Profile? profile;
   const _BindCard({required this.bind, required this.profile});
 
   String _sub(String t) => t
@@ -469,8 +473,8 @@ class _BindCard extends StatelessWidget {
         child: InkWell(
           borderRadius: BorderRadius.circular(6),
           onTap: () {
-            final lines = (bind.lines as List)
-                .map((l) => _sub(l.text as String))
+            final lines = bind.lines
+                .map((l) => _sub(l.text))
                 .where((t) => t.isNotEmpty)
                 .join('\n');
             Clipboard.setData(ClipboardData(text: lines));
@@ -489,14 +493,14 @@ class _BindCard extends StatelessWidget {
               const SizedBox(width: 8),
               Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text(bind.title, style: const TextStyle(color: AppColors.textPrimary, fontSize: 12, fontWeight: FontWeight.w500)),
-                if ((bind.lines as List).isNotEmpty) ...[
+                if (bind.lines.isNotEmpty) ...[
                   const SizedBox(height: 2),
-                  Text(_sub(bind.lines[0].text as String),
+                  Text(_sub(bind.lines.first.text),
                       style: const TextStyle(color: AppColors.textSecondary, fontSize: 10),
                       maxLines: 1, overflow: TextOverflow.ellipsis),
                 ],
               ])),
-              if ((bind.key as String).isNotEmpty)
+              if (bind.key.isNotEmpty)
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                   decoration: BoxDecoration(
