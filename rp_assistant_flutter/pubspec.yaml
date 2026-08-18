@@ -1,5 +1,5 @@
 name: rp_assistant
-description: RP Assistant — AmazingRP overlay tool for Windows
+description: RP Assistant вЂ” AmazingRP overlay tool for Windows
 version: 1.1.0+1
 
 environment:
@@ -20,7 +20,6 @@ dependencies:
   intl: ^0.19.0
   crypto: ^3.0.3
   file_picker: ^8.1.7
-  hotkey_manager: ^0.2.3
 
 dev_dependencies:
   flutter_test:

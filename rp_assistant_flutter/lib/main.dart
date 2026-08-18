@@ -1,7 +1,6 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:window_manager/window_manager.dart';
-import 'package:hotkey_manager/hotkey_manager.dart';
 import 'app.dart';
 
 void main() async {
@@ -19,9 +18,6 @@ void main() async {
   } else {
     await _initLauncherWindow();
   }
-
-  // Init hotkey manager
-  await hotKeyManager.unregisterAll();
 
   runApp(ProviderScope(child: RpAssistantApp(overlayMode: isOverlay)));
 }
