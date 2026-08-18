@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:crypto/crypto.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -32,6 +33,15 @@ class KeyAuthService {
   static const String _secretSalt = 'AMAZING_RP_2026_SECURE_HMAC_SALT_KEYAUTH_XINATORY_9921';
   static const int _durationXorMask = 0x5D8A;
   static const String _verifyApiUrl = 'https://amzrp.vercel.app/api/verify';
+
+  static String get _hwid {
+    try {
+      final raw = '${Platform.localHostname}_${Platform.operatingSystemVersion}_${Platform.environment['USERNAME'] ?? 'user'}_${Platform.environment['PROCESSOR_IDENTIFIER'] ?? 'cpu'}';
+      return sha256.convert(utf8.encode(raw)).toString().toUpperCase();
+    } catch (_) {
+      return 'AMAZING_RP_DEFAULT_HWID_WIN64_2026';
+    }
+  }
 
   // Cryptographic Signature & Opaque Key Verification
   static ({bool valid, String subscription, String expiry, String message}) _verifyCryptographicSignature(String key) {
@@ -231,6 +241,7 @@ class KeyAuthService {
           body: {
             'type': 'license',
             'key': cleanKey,
+            'hwid': _hwid,
             'sessionid': session,
             'name': _appName,
             'ownerid': _ownerId,
@@ -314,6 +325,7 @@ class KeyAuthService {
             'type': 'login',
             'username': cleanUser,
             'pass': cleanPass,
+            'hwid': _hwid,
             'sessionid': session,
             'name': _appName,
             'ownerid': _ownerId,
@@ -421,6 +433,7 @@ class KeyAuthService {
               'pass': cleanPass,
               'email': email.trim(),
               'key': key.trim(),
+              'hwid': _hwid,
               'sessionid': session,
               'name': _appName,
               'ownerid': _ownerId,
@@ -474,11 +487,41 @@ class KeyAuthService {
         }
       }
     } catch (_) {}
+
+    // Step 3: KeyAuth Cloud Fallback
+    try {
+      final session = await _initSession();
+      if (session != null) {
+        final resp = await http.post(
+          Uri.parse('https://keyauth.win/api/1.2/'),
+          body: {
+            'type': 'license',
+            'key': trimmed,
+            'hwid': _hwid,
+            'sessionid': session,
+            'name': _appName,
+            'ownerid': _ownerId,
+          },
+        ).timeout(const Duration(seconds: 8));
+
+        final data = json.decode(resp.body) as Map<String, dynamic>;
+        if (data['success'] == true) {
+          final info = data['info'] as Map<String, dynamic>?;
+          return AuthResult(
+            success: true,
+            message: 'Лицензия успешно активирована!',
+            username: info?['username'] as String? ?? 'Пользователь PRO',
+            subscription: info?['subscriptions']?[0]?['subscription'] as String? ?? 'PRO Lifetime',
+            expiry: info?['subscriptions']?[0]?['expiry'] as String? ?? 'Бессрочно',
+            isPremium: true,
+          );
+        }
+      }
+    } catch (_) {}
+
     return const AuthResult(
       success: false,
       message: 'Недействительный лицензионный ключ. Проверьте правильность и попробуйте снова.',
     );
   }
 }
-
-
